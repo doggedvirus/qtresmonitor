@@ -25,7 +25,9 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 SOURCES += main.cpp\
         mainwidget.cpp \
-    thread/cpurate.cpp
+    thread/cpurate.cpp \
+    thread/ramrate.cpp
 
 HEADERS  += mainwidget.h \
-    thread/cpurate.h
+    thread/cpurate.h \
+    thread/ramrate.h
