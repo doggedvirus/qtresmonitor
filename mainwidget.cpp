@@ -129,6 +129,8 @@ void MainWidget::timeout_slot(void)
 }
 
 //There is an interesting test of this function:
+//I tried change this 2 input parameters' types to double,
+//then in release mode,crash;in debug mode, run correctly.
 QString MainWidget::getSpeedInfo(int idownloadSpeed, int iuploadSpeed)
 {
     QString speedString = "B/s";
