@@ -1,14 +1,32 @@
 #include "mainwidget.h"
+#include "widgetlib/ratepainter.h"
 
 MainWidget::MainWidget(QWidget *parent)
     : QWidget(parent)
 {
+    m_dpi = qApp->primaryScreen()->logicalDotsPerInchX() / 120.0;
+
     CpuRate_Label = new QLabel(this);
     RamRate_Label = new QLabel(this);
-    Speed_Label = new QLabel(this);
+    uploadSpeed_Label = new QLabel(this);
+    downloadSpeed_Label = new QLabel(this);
     m_timer = new QTimer(this);
     connect(m_timer, SIGNAL(timeout()), this, SLOT(timeout_slot()));
-    this->setMinimumSize(200, 200);
+    this->setWindowFlags(Qt::FramelessWindowHint | Qt::Tool);
+    this->setAttribute(Qt::WA_TranslucentBackground, true);
+
+    m_QuitAction = new QAction("Quit",this);
+    m_Menu = new QMenu((QWidget*)QApplication::desktop());
+    m_Menu->addAction(m_QuitAction);
+
+    m_TrayIcon = new QSystemTrayIcon(this);
+    m_TrayIcon->setIcon(QIcon(":/monitor.ico"));
+    m_TrayIcon->setContextMenu(m_Menu);
+    m_TrayIcon->show();
+    connect(m_QuitAction,SIGNAL(triggered()),this, SLOT(quitApp_slot()));
+
+    this->setFixedSize(160 * m_dpi, 160 * m_dpi);
+
     layoutInit();
 
     //usually,iphlpapi.dll has existed in windows
@@ -22,6 +40,9 @@ MainWidget::MainWidget(QWidget *parent)
     memset(&m_preKernelTime, 0, sizeof(FILETIME));
     memset(&m_preUserTime, 0, sizeof(FILETIME));
 
+    m_MemeoryRate = 0;
+    m_CpuRate = 0;
+
     m_timer->start(1000);
 }
 
@@ -30,17 +51,48 @@ MainWidget::~MainWidget()
     m_timer->stop();
 }
 
+void MainWidget::quitApp_slot(void)
+{
+    qApp->quit();
+}
+
 void MainWidget::paintEvent(QPaintEvent *event)
 {
+    RatePainter paint1(this);
+    paint1.setColor(QColor(70, 70, 70));
+    paint1.drawRate(paint1.getPenwidth(), paint1.getPenwidth(), this->width() - paint1.getPenwidth() * 2, this->width() - paint1.getPenwidth() * 2, m_CpuRate);
+    paint1.setColor(QColor(0, 187, 158));
+    paint1.drawRate(paint1.getPenwidth() * 2, paint1.getPenwidth() * 2, this->width() - paint1.getPenwidth() * 4, this->width() - paint1.getPenwidth() * 4, m_MemeoryRate);
     layoutInit();
     QWidget::paintEvent(event);
+}
+void MainWidget::mousePressEvent(QMouseEvent *event)
+{
+    if (event->button() == Qt::LeftButton)
+    {
+        m_dragPosition = event->globalPos() - frameGeometry().topLeft();
+        event->accept();
+    }
+    QWidget::mousePressEvent(event);
+}
+
+void MainWidget::mouseMoveEvent(QMouseEvent *event)
+{
+    if (event->buttons() & Qt::LeftButton)
+    {
+        move(event->globalPos() - m_dragPosition);
+        event->accept();
+    }
+
+    QWidget::mouseMoveEvent(event);
 }
 
 void MainWidget::layoutInit(void)
 {
-    CpuRate_Label->move(this->width() / 2 - CpuRate_Label->width() / 2, 20);
-    RamRate_Label->move(this->width() / 2 - CpuRate_Label->width() / 2, CpuRate_Label->y() + CpuRate_Label->height() + 10);
-    Speed_Label->move(this->width() / 2 - Speed_Label->width() / 2, RamRate_Label->y() + RamRate_Label->height() + 10);
+    CpuRate_Label->move(this->width() * 0.37, this->height() - 25 * m_dpi);
+    RamRate_Label->move(this->width() * 0.37, this->height() - 37 * m_dpi);
+    uploadSpeed_Label->move(this->width() * 0.2, this->height() * 0.35);
+    downloadSpeed_Label->move(this->width() * 0.2, this->height() * 0.55);
 }
 
 void MainWidget::timeout_slot(void)
@@ -53,7 +105,8 @@ void MainWidget::timeout_slot(void)
         int nMemFree = memsStat.ullAvailPhys / (1024 * 1024);
         int nMemTotal = memsStat.ullTotalPhys / (1024 * 1024);
 
-        RamRate_Label->setText(QString("RAM rate:%1\%").arg((nMemTotal - nMemFree) * 100 / nMemTotal));
+        m_MemeoryRate = (nMemTotal - nMemFree) * 100 / nMemTotal;
+        RamRate_Label->setText(QString("RAM %1\%").arg(m_MemeoryRate));
         RamRate_Label->adjustSize();
     }
 
@@ -69,8 +122,9 @@ void MainWidget::timeout_slot(void)
             int kernel = delOfInt64(KernelTime,m_preKernelTime);
             int user = delOfInt64(UserTime,m_preUserTime);
 
-            int rate = (kernel + user - idle) * 100 / (kernel + user);
-            CpuRate_Label->setText(QString("CPU rate:%1\%").arg(rate));
+            //confirm rate > 0
+            m_CpuRate = (double)(kernel + user - idle) / (double)(kernel + user) * 100 / 1;
+            CpuRate_Label->setText(QString("CPU %1\%").arg(m_CpuRate));
             CpuRate_Label->adjustSize();
         }
         m_preIdleTime = IdleTime;
@@ -119,13 +173,20 @@ void MainWidget::timeout_slot(void)
     {
         double coeffcient = (double)(1000 + nowTime - m_preTime) / 1000;
         //download and upload speed should keep same unit
-        Speed_Label->setText(getSpeedInfo((int)(NowIn - m_preNetIn) / coeffcient, (int)(NowOut - m_preNetOut) / coeffcient));
-        Speed_Label->adjustSize();
+        QStringList speedlist = getSpeedInfo((int)(NowIn - m_preNetIn) / coeffcient, (int)(NowOut - m_preNetOut) / coeffcient).split("|");
+        QString uploadString = speedlist.at(0);
+        QString downloadString = speedlist.at(1);
+        uploadSpeed_Label->setText("↑ " + uploadString);
+        uploadSpeed_Label->adjustSize();
+        downloadSpeed_Label->setText("↓ " + downloadString);
+        downloadSpeed_Label->adjustSize();
     }
     m_preTime = nowTime;
     m_preNetOut = NowOut;
     m_preNetIn = NowIn;
 
+    //refresh widget
+    update();
 }
 
 //There is an interesting test of this function:
@@ -161,7 +222,7 @@ QString MainWidget::getSpeedInfo(int idownloadSpeed, int iuploadSpeed)
         }
     }
 
-    return QString("download:%1%2\nupload:%3%2").arg(uploadSpeed).arg(speedString).arg(downloadSpeed);
+    return QString("%1%2|%3%2").arg(uploadSpeed).arg(speedString).arg(downloadSpeed);
 }
 
 int MainWidget::delOfInt64(FILETIME subtrahend, FILETIME minuend)
@@ -169,10 +230,10 @@ int MainWidget::delOfInt64(FILETIME subtrahend, FILETIME minuend)
     __int64 a = (__int64)(subtrahend.dwHighDateTime) << 32 | (__int64)subtrahend.dwLowDateTime ;
     __int64 b = (__int64)(minuend.dwHighDateTime) << 32 | (__int64)minuend.dwLowDateTime ;
 
-    int answer = 0;
-    if(b > a)
+    uint answer = 0;
+    if(a > b)
     {
-        answer = b - a;
+        answer = a - b;
     }
     else
     {

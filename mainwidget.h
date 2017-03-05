@@ -55,12 +55,20 @@ public:
     ~MainWidget();
 public slots:
     void timeout_slot(void);
+    void quitApp_slot(void);
 protected:
     void paintEvent(QPaintEvent *event);
+    void mousePressEvent(QMouseEvent *event);
+    void mouseMoveEvent(QMouseEvent *event);
 private:
     QLabel* CpuRate_Label;
     QLabel* RamRate_Label;
-    QLabel* Speed_Label;
+    QLabel* uploadSpeed_Label;
+    QLabel* downloadSpeed_Label;
+
+    QSystemTrayIcon* m_TrayIcon;
+    QAction* m_QuitAction;
+    QMenu* m_Menu;
 
     void layoutInit(void);
     QString getSpeedInfo(int downloadSpeed, int uploadSpeed);
@@ -76,6 +84,12 @@ private:
     FILETIME m_preIdleTime;
     FILETIME m_preKernelTime;
     FILETIME m_preUserTime;
+
+    uint m_MemeoryRate;
+    uint m_CpuRate;
+
+    float m_dpi;
+    QPoint m_dragPosition;
 };
 
 #endif // MAINWIDGET_H
