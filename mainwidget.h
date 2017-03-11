@@ -55,7 +55,9 @@ public:
     ~MainWidget();
 public slots:
     void timeout_slot(void);
+    void scanTimeout_slot(void);
     void quitApp_slot(void);
+    void about_slot(void);
 protected:
     void paintEvent(QPaintEvent *event);
     void mousePressEvent(QMouseEvent *event);
@@ -68,6 +70,7 @@ private:
 
     QSystemTrayIcon* m_TrayIcon;
     QAction* m_QuitAction;
+    QAction* m_AboutAction;
     QMenu* m_Menu;
 
     void layoutInit(void);
@@ -75,6 +78,7 @@ private:
     int delOfInt64(FILETIME subtrahend, FILETIME minuend);
 
     QTimer* m_timer;
+    QTimer* m_scanTimer;
 
     GetIfTable m_funcGetIfTable;
     QLibrary m_lib;
@@ -90,6 +94,8 @@ private:
 
     float m_dpi;
     QPoint m_dragPosition;
+    double m_Angle;
+    int m_Period;
 };
 
 #endif // MAINWIDGET_H

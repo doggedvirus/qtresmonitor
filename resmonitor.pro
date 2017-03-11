@@ -24,11 +24,9 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 
 SOURCES += main.cpp\
-        mainwidget.cpp \
-    widgetlib/ratepainter.cpp
+        mainwidget.cpp
 
-HEADERS  += mainwidget.h \
-    widgetlib/ratepainter.h
+HEADERS  += mainwidget.h
 
 RC_FILE += \
     resmonitor.rc

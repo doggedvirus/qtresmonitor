@@ -1,31 +1,47 @@
 #include "mainwidget.h"
-#include "widgetlib/ratepainter.h"
 
 MainWidget::MainWidget(QWidget *parent)
     : QWidget(parent)
 {
     m_dpi = qApp->primaryScreen()->logicalDotsPerInchX() / 120.0;
 
+    QPalette pa;
+    pa.setColor(QPalette::WindowText,Qt::green);
+
     CpuRate_Label = new QLabel(this);
+    CpuRate_Label->setPalette(pa);
     RamRate_Label = new QLabel(this);
+    RamRate_Label->setPalette(pa);
     uploadSpeed_Label = new QLabel(this);
+    uploadSpeed_Label->setPalette(pa);
     downloadSpeed_Label = new QLabel(this);
+    downloadSpeed_Label->setPalette(pa);
     m_timer = new QTimer(this);
     connect(m_timer, SIGNAL(timeout()), this, SLOT(timeout_slot()));
+    m_scanTimer = new QTimer(this);
+    connect(m_scanTimer, SIGNAL(timeout()), this, SLOT(scanTimeout_slot()));
     this->setWindowFlags(Qt::FramelessWindowHint | Qt::Tool);
     this->setAttribute(Qt::WA_TranslucentBackground, true);
 
     m_QuitAction = new QAction("Quit",this);
-    m_Menu = new QMenu((QWidget*)QApplication::desktop());
+    m_AboutAction = new QAction("About",this);
+    m_Menu = new QMenu((QWidget*)QApplication::desktop());    
+    m_Menu->addAction(m_AboutAction);
     m_Menu->addAction(m_QuitAction);
 
     m_TrayIcon = new QSystemTrayIcon(this);
-    m_TrayIcon->setIcon(QIcon(":/monitor.ico"));
+    m_TrayIcon->setIcon(QIcon(":/monitor.png"));
     m_TrayIcon->setContextMenu(m_Menu);
     m_TrayIcon->show();
-    connect(m_QuitAction,SIGNAL(triggered()),this, SLOT(quitApp_slot()));
 
-    this->setFixedSize(160 * m_dpi, 160 * m_dpi);
+    this->addAction(m_AboutAction);
+    this->addAction(m_QuitAction);
+    this->setContextMenuPolicy(Qt::ActionsContextMenu);
+
+    connect(m_QuitAction,SIGNAL(triggered()),this, SLOT(quitApp_slot()));
+    connect(m_AboutAction,SIGNAL(triggered()),this, SLOT(about_slot()));
+
+    this->setFixedSize(220 * m_dpi, 105 * m_dpi);
 
     layoutInit();
 
@@ -43,7 +59,11 @@ MainWidget::MainWidget(QWidget *parent)
     m_MemeoryRate = 0;
     m_CpuRate = 0;
 
-    m_timer->start(1000);
+    m_Angle = 0;
+    m_Period = 2000;
+
+    m_timer->start(m_Period);
+    m_scanTimer->start(50);
 }
 
 MainWidget::~MainWidget()
@@ -56,13 +76,70 @@ void MainWidget::quitApp_slot(void)
     qApp->quit();
 }
 
+void MainWidget::about_slot(void)
+{
+    QMessageBox::information(this, "About", QString("Version:0.0.1")
+                                            + "<br/>Author:<a href=\"https://doggedvirus.com/about\">https://doggedvirus.com/about</a>"
+                                            + "<br/>Github:<a href=\"https://github.com/doggedvirus/qtresmonitor\">https://github.com/doggedvirus/qtresmonitor</a>");
+}
+
 void MainWidget::paintEvent(QPaintEvent *event)
 {
-    RatePainter paint1(this);
-    paint1.setColor(QColor(70, 70, 70));
-    paint1.drawRate(paint1.getPenwidth(), paint1.getPenwidth(), this->width() - paint1.getPenwidth() * 2, this->width() - paint1.getPenwidth() * 2, m_CpuRate);
-    paint1.setColor(QColor(0, 187, 158));
-    paint1.drawRate(paint1.getPenwidth() * 2, paint1.getPenwidth() * 2, this->width() - paint1.getPenwidth() * 4, this->width() - paint1.getPenwidth() * 4, m_MemeoryRate);
+    //draw a radar
+    QPainter painter_horizon(this);
+    painter_horizon.setPen(QPen(Qt::green));
+    QConicalGradient conicalGradient(50 * m_dpi,50 * m_dpi,180.0 - m_Angle);
+    conicalGradient.setColorAt(0,Qt::green);
+    conicalGradient.setColorAt(1.0,QColor(255,255,255,0));
+    painter_horizon.setBrush(QBrush(conicalGradient));
+    painter_horizon.drawEllipse(0 * m_dpi,0 * m_dpi,100 * m_dpi,100 * m_dpi);
+
+    QPainter painter(this);
+    painter.setPen(QPen(Qt::green));
+    painter.drawLine(0,50 * m_dpi,100 * m_dpi,50 * m_dpi);
+    painter.drawLine(50 * m_dpi,0,50 * m_dpi,100 * m_dpi);
+    painter.drawEllipse(20 * m_dpi,20 * m_dpi,60 * m_dpi,60 * m_dpi);
+
+    //draw the line from radar to data
+    QPoint p1;
+    QPoint p2;
+    QPoint p3;
+    if(m_Angle >= 120 && m_Angle < 240)
+    {
+        p1 = QPoint(60 * m_dpi, 32.7 * m_dpi);
+        p2 = QPoint(72.7 * m_dpi, 20 * m_dpi);
+        p3 = QPoint(105 * m_dpi, 20 * m_dpi);
+        painter.drawLine(p1, p2);
+        painter.drawLine(p2, p3);
+    }
+
+    if(m_Angle >= 150 && m_Angle < 270)
+    {
+        p1 = QPoint(57.6 * m_dpi, 45 * m_dpi);
+        p2 = QPoint(62.6 * m_dpi, 40 * m_dpi);
+        p3 = QPoint(105 * m_dpi, 40 * m_dpi);
+        painter.drawLine(p1, p2);
+        painter.drawLine(p2, p3);
+    }
+
+    if(m_Angle >= 210 && m_Angle < 330)
+    {
+        p1 = QPoint(57.6 * m_dpi, 55 * m_dpi);
+        p2 = QPoint(62.6 * m_dpi, 60 * m_dpi);
+        p3 = QPoint(105 * m_dpi, 60 * m_dpi);
+        painter.drawLine(p1, p2);
+        painter.drawLine(p2, p3);
+    }
+
+    if(m_Angle >= 240 && m_Angle < 360)
+    {
+        p1 = QPoint(60 * m_dpi, 67.3 * m_dpi);
+        p2 = QPoint(72.7 * m_dpi, 80 * m_dpi);
+        p3 = QPoint(105 * m_dpi, 80 * m_dpi);
+        painter.drawLine(p1, p2);
+        painter.drawLine(p2, p3);
+    }
+
     layoutInit();
     QWidget::paintEvent(event);
 }
@@ -89,10 +166,20 @@ void MainWidget::mouseMoveEvent(QMouseEvent *event)
 
 void MainWidget::layoutInit(void)
 {
-    CpuRate_Label->move(this->width() * 0.37, this->height() - 25 * m_dpi);
-    RamRate_Label->move(this->width() * 0.37, this->height() - 37 * m_dpi);
-    uploadSpeed_Label->move(this->width() * 0.2, this->height() * 0.35);
-    downloadSpeed_Label->move(this->width() * 0.2, this->height() * 0.55);
+    CpuRate_Label->move(110 * m_dpi, 10 * m_dpi);
+    RamRate_Label->move(110 * m_dpi, 30 * m_dpi);
+    uploadSpeed_Label->move(110 * m_dpi, 50 * m_dpi);
+    downloadSpeed_Label->move(110 * m_dpi, 70 * m_dpi);
+}
+
+void MainWidget::scanTimeout_slot(void)
+{
+    m_Angle += 18000.0 / m_Period;
+    if(m_Angle >= 360)
+    {
+        m_Angle = 0;
+    }
+    repaint();
 }
 
 void MainWidget::timeout_slot(void)
@@ -160,7 +247,8 @@ void MainWidget::timeout_slot(void)
             }
         }
 
-        if(false == bExist)
+        if(false == bExist
+           && (Row.dwInOctets != 0 || Row.dwOutOctets != 0))
         {
             typeList.append(Row.dwType);
             NowIn += Row.dwInOctets;
@@ -171,7 +259,7 @@ void MainWidget::timeout_slot(void)
 
     if(0 != m_preNetOut && 0 != m_preNetIn)
     {
-        double coeffcient = (double)(1000 + nowTime - m_preTime) / 1000;
+        double coeffcient = (double)(m_Period + nowTime - m_preTime) / 1000;
         //download and upload speed should keep same unit
         QStringList speedlist = getSpeedInfo((int)(NowIn - m_preNetIn) / coeffcient, (int)(NowOut - m_preNetOut) / coeffcient).split("|");
         QString uploadString = speedlist.at(0);

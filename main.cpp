@@ -7,6 +7,7 @@ int main(int argc, char *argv[])
 
     QFont font  = qApp->font();
     font.setFamily("Calibri");
+    font.setPointSize(11);
     qApp->setFont(font);
 
     MainWidget w;
