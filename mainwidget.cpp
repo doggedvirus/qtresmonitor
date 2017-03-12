@@ -25,7 +25,27 @@ MainWidget::MainWidget(QWidget *parent)
 
     m_QuitAction = new QAction("Quit",this);
     m_AboutAction = new QAction("About",this);
-    m_Menu = new QMenu((QWidget*)QApplication::desktop());    
+    m_PeriodAction = new QMenu("Period",this);
+    m_PeriodAction_1 = new QAction("1 Second",this);
+    m_PeriodAction_1->setCheckable(true);
+    m_PeriodAction_2 = new QAction("2 Seconds",this);
+    m_PeriodAction_2->setCheckable(true);
+    m_PeriodAction_3 = new QAction("3 Seconds",this);
+    m_PeriodAction_3->setCheckable(true);
+    m_PeriodAction_4 = new QAction("4 Seconds",this);
+    m_PeriodAction_4->setCheckable(true);
+    Perion_ActionGroup = new QActionGroup(this);
+    Perion_ActionGroup->addAction(m_PeriodAction_1);
+    Perion_ActionGroup->addAction(m_PeriodAction_2);
+    Perion_ActionGroup->addAction(m_PeriodAction_3);
+    Perion_ActionGroup->addAction(m_PeriodAction_4);
+    m_PeriodAction_1->setChecked(true);
+    m_PeriodAction->addAction(m_PeriodAction_1);
+    m_PeriodAction->addAction(m_PeriodAction_2);
+    m_PeriodAction->addAction(m_PeriodAction_3);
+    m_PeriodAction->addAction(m_PeriodAction_4);
+    m_Menu = new QMenu(this);
+    m_Menu->addMenu(m_PeriodAction);
     m_Menu->addAction(m_AboutAction);
     m_Menu->addAction(m_QuitAction);
 
@@ -34,12 +54,12 @@ MainWidget::MainWidget(QWidget *parent)
     m_TrayIcon->setContextMenu(m_Menu);
     m_TrayIcon->show();
 
-    this->addAction(m_AboutAction);
-    this->addAction(m_QuitAction);
-    this->setContextMenuPolicy(Qt::ActionsContextMenu);
-
     connect(m_QuitAction,SIGNAL(triggered()),this, SLOT(quitApp_slot()));
     connect(m_AboutAction,SIGNAL(triggered()),this, SLOT(about_slot()));
+    connect(m_PeriodAction_1,SIGNAL(triggered()),this, SLOT(period1s_slot()));
+    connect(m_PeriodAction_2,SIGNAL(triggered()),this, SLOT(period2s_slot()));
+    connect(m_PeriodAction_3,SIGNAL(triggered()),this, SLOT(period3s_slot()));
+    connect(m_PeriodAction_4,SIGNAL(triggered()),this, SLOT(period4s_slot()));
 
     this->setFixedSize(220 * m_dpi, 105 * m_dpi);
 
@@ -60,7 +80,7 @@ MainWidget::MainWidget(QWidget *parent)
     m_CpuRate = 0;
 
     m_Angle = 0;
-    m_Period = 2000;
+    m_Period = 1000;
 
     m_timer->start(m_Period);
     m_scanTimer->start(50);
@@ -79,8 +99,41 @@ void MainWidget::quitApp_slot(void)
 void MainWidget::about_slot(void)
 {
     QMessageBox::information(this, "About", QString("Version:0.0.1")
+                                            + "<br/>Github:<a href=\"https://github.com/doggedvirus/qtresmonitor\">https://github.com/doggedvirus/qtresmonitor</a>"
                                             + "<br/>Author:<a href=\"https://doggedvirus.com/about\">https://doggedvirus.com/about</a>"
-                                            + "<br/>Github:<a href=\"https://github.com/doggedvirus/qtresmonitor\">https://github.com/doggedvirus/qtresmonitor</a>");
+                                            + "<br/>Icon Designer:<a href=\"http://weibo.com/foreverdrawing\">http://weibo.com/foreverdrawing</a>");
+}
+
+void MainWidget::period1s_slot(void)
+{
+    m_PeriodAction_1->setChecked(true);
+    m_Period = 1000;
+    m_timer->stop();
+    m_timer->start(m_Period);
+}
+
+void MainWidget::period2s_slot(void)
+{
+    m_PeriodAction_2->setChecked(true);
+    m_Period = 2000;
+    m_timer->stop();
+    m_timer->start(m_Period);
+}
+
+void MainWidget::period3s_slot(void)
+{
+    m_PeriodAction_3->setChecked(true);
+    m_Period = 3000;
+    m_timer->stop();
+    m_timer->start(m_Period);
+}
+
+void MainWidget::period4s_slot(void)
+{
+    m_PeriodAction_4->setChecked(true);
+    m_Period = 4000;
+    m_timer->stop();
+    m_timer->start(m_Period);
 }
 
 void MainWidget::paintEvent(QPaintEvent *event)
@@ -162,6 +215,12 @@ void MainWidget::mouseMoveEvent(QMouseEvent *event)
     }
 
     QWidget::mouseMoveEvent(event);
+}
+
+void MainWidget::contextMenuEvent(QContextMenuEvent *event)
+{
+    m_Menu->exec(QCursor::pos());
+    QWidget::contextMenuEvent(event);
 }
 
 void MainWidget::layoutInit(void)
