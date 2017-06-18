@@ -4,6 +4,7 @@
 #include <QtWidgets>
 #include <QLibrary>
 
+#ifdef Q_OS_WIN32
 //to use dll directory,define then by self
 #define MAX_INTERFACE_NAME_LEN 256
 #define MAXLEN_PHYSADDR 8
@@ -45,6 +46,7 @@ typedef struct _MIB_IFTABLE
 } MIB_IFTABLE, *PMIB_IFTABLE;
 
 typedef DWORD (*GetIfTable)(PMIB_IFTABLE, PULONG, BOOL);
+#endif
 
 class MainWidget : public QWidget
 {
@@ -85,12 +87,17 @@ private:
     QMenu* m_Menu;
 
     void layoutInit(void);
-    QString getSpeedInfo(int downloadSpeed, int uploadSpeed);
-    int delOfInt64(FILETIME subtrahend, FILETIME minuend);
+    QString getSpeedInfo(double downloadSpeed, double uploadSpeed);
+
+    bool getRamRate(void);
+    bool getCpuRate(void);
+    bool getNetworkSpeed(void);
 
     QTimer* m_timer;
     QTimer* m_scanTimer;
 
+#ifdef Q_OS_WIN32
+    int delOfInt64(FILETIME subtrahend, FILETIME minuend);
     GetIfTable m_funcGetIfTable;
     QLibrary m_lib;
     DWORD m_preNetIn;
@@ -99,9 +106,15 @@ private:
     FILETIME m_preIdleTime;
     FILETIME m_preKernelTime;
     FILETIME m_preUserTime;
+#elif defined Q_OS_LINUX
+    long long m_preIdleTime;
+    long long m_preAllTime;
+#endif
 
     uint m_MemeoryRate;
     uint m_CpuRate;
+    QString m_Upload;
+    QString m_Download;
 
     float m_dpi;
     QPoint m_dragPosition;
