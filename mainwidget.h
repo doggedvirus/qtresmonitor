@@ -96,19 +96,21 @@ private:
     QTimer* m_timer;
     QTimer* m_scanTimer;
 
+    int m_preTime;
 #ifdef Q_OS_WIN32
     int delOfInt64(FILETIME subtrahend, FILETIME minuend);
     GetIfTable m_funcGetIfTable;
     QLibrary m_lib;
     DWORD m_preNetIn;
     DWORD m_preNetOut;
-    int m_preTime;
     FILETIME m_preIdleTime;
     FILETIME m_preKernelTime;
     FILETIME m_preUserTime;
 #elif defined Q_OS_LINUX
     long long m_preIdleTime;
     long long m_preAllTime;
+    long long m_preNetIn;
+    long long m_preNetOut;
 #endif
 
     uint m_MemeoryRate;

@@ -3,6 +3,7 @@
 #include <QString>
 #include <QByteArray>
 #include <QStringList>
+#include <QDataStream>
 
 MainWidget::MainWidget(QWidget *parent)
     : QWidget(parent)
@@ -80,6 +81,11 @@ MainWidget::MainWidget(QWidget *parent)
     memset(&m_preIdleTime, 0, sizeof(FILETIME));
     memset(&m_preKernelTime, 0, sizeof(FILETIME));
     memset(&m_preUserTime, 0, sizeof(FILETIME));
+#elif defined Q_OS_LINUX
+    m_preIdleTime = 0;
+    m_preAllTime = 0;
+    m_preNetIn = 0;
+    m_preNetOut = 0;
  #endif
 
     m_MemeoryRate = 0;
@@ -582,6 +588,40 @@ bool MainWidget::getNetworkSpeed(void)
     m_preTime = nowTime;
     m_preNetOut = NowOut;
     m_preNetIn = NowIn;
+#elif defined Q_OS_LINUX
+    QFile file("/proc/net/dev");
+    if(file.open(QIODevice::ReadOnly))
+    {
+        int nowTime = QDateTime().currentDateTime().toString("zzz").toInt();
+        long long NowIn = 0;
+        long long NowOut = 0;
+        QByteArray array = file.readLine();
+        array = file.readLine();
+        array = file.readLine();
+        while(array.count() > 0)
+        {
+            QTextStream s(array);
+            QString s1,s2,s3,s4,s5,s6,s7,s8,s9,s10;
+            s>>s1>>s2>>s3>>s4>>s5>>s6>>s7>>s8>>s9>>s10;
+            NowIn += s2.toLongLong();
+            NowOut += s10.toLongLong();
+            array = file.readLine();
+        }
+
+        if(0 != m_preNetOut && 0 != m_preNetIn)
+        {
+            double coeffcient = (double)(m_Period + nowTime - m_preTime) / 1000;
+            //download and upload speed should keep same unit
+            QStringList speedlist = getSpeedInfo(((double)(NowIn - m_preNetIn)) / coeffcient, ((double)(NowOut - m_preNetOut)) / coeffcient).split("|");
+            m_Upload = speedlist.at(0);
+            m_Download = speedlist.at(1);
+            bRet = true;
+        }
+        m_preTime = nowTime;
+        m_preNetOut = NowOut;
+        m_preNetIn = NowIn;
+        file.close();
+    }
 #endif
     return bRet;
 }
