@@ -30,27 +30,7 @@ MainWidget::MainWidget(QWidget *parent)
 
     m_QuitAction = new QAction("Quit",this);
     m_AboutAction = new QAction("About",this);
-    m_PeriodAction = new QMenu("Period",this);
-    m_PeriodAction_1 = new QAction("1 Second",this);
-    m_PeriodAction_1->setCheckable(true);
-    m_PeriodAction_2 = new QAction("2 Seconds",this);
-    m_PeriodAction_2->setCheckable(true);
-    m_PeriodAction_3 = new QAction("3 Seconds",this);
-    m_PeriodAction_3->setCheckable(true);
-    m_PeriodAction_4 = new QAction("4 Seconds",this);
-    m_PeriodAction_4->setCheckable(true);
-    Perion_ActionGroup = new QActionGroup(this);
-    Perion_ActionGroup->addAction(m_PeriodAction_1);
-    Perion_ActionGroup->addAction(m_PeriodAction_2);
-    Perion_ActionGroup->addAction(m_PeriodAction_3);
-    Perion_ActionGroup->addAction(m_PeriodAction_4);
-    m_PeriodAction_1->setChecked(true);
-    m_PeriodAction->addAction(m_PeriodAction_1);
-    m_PeriodAction->addAction(m_PeriodAction_2);
-    m_PeriodAction->addAction(m_PeriodAction_3);
-    m_PeriodAction->addAction(m_PeriodAction_4);
     m_Menu = new QMenu(this);
-    m_Menu->addMenu(m_PeriodAction);
     m_Menu->addAction(m_AboutAction);
     m_Menu->addAction(m_QuitAction);
 
@@ -61,11 +41,6 @@ MainWidget::MainWidget(QWidget *parent)
 
     connect(m_QuitAction,SIGNAL(triggered()),this, SLOT(quitApp_slot()));
     connect(m_AboutAction,SIGNAL(triggered()),this, SLOT(about_slot()));
-    connect(m_PeriodAction_1,SIGNAL(triggered()),this, SLOT(period1s_slot()));
-    connect(m_PeriodAction_2,SIGNAL(triggered()),this, SLOT(period2s_slot()));
-    connect(m_PeriodAction_3,SIGNAL(triggered()),this, SLOT(period3s_slot()));
-    connect(m_PeriodAction_4,SIGNAL(triggered()),this, SLOT(period4s_slot()));
-
     this->setFixedSize(220 * m_dpi, 105 * m_dpi);
 
     layoutInit();
@@ -92,9 +67,8 @@ MainWidget::MainWidget(QWidget *parent)
     m_CpuRate = 0;
 
     m_Angle = 0;
-    m_Period = 1000;
-
-    m_timer->start(m_Period);
+    m_iPreAngleTime = 9888;//initial value
+    m_timer->start(1000);
     m_scanTimer->start(50);
 }
 
@@ -111,41 +85,9 @@ void MainWidget::quitApp_slot(void)
 void MainWidget::about_slot(void)
 {
     QMessageBox::information(this, "About", QString("Version:0.0.1")
-                                            + "<br/>Github:<a href=\"https://github.com/doggedvirus/qtresmonitor\">https://github.com/doggedvirus/qtresmonitor</a>"
+                                            + "<br/>Source:<a href=\"https://github.com/doggedvirus/qtresmonitor\">https://github.com/doggedvirus/qtresmonitor</a>"
                                             + "<br/>Author:<a href=\"https://doggedvirus.com/about\">https://doggedvirus.com/about</a>"
                                             + "<br/>Icon Designer:<a href=\"http://weibo.com/foreverdrawing\">http://weibo.com/foreverdrawing</a>");
-}
-
-void MainWidget::period1s_slot(void)
-{
-    m_PeriodAction_1->setChecked(true);
-    m_Period = 1000;
-    m_timer->stop();
-    m_timer->start(m_Period);
-}
-
-void MainWidget::period2s_slot(void)
-{
-    m_PeriodAction_2->setChecked(true);
-    m_Period = 2000;
-    m_timer->stop();
-    m_timer->start(m_Period);
-}
-
-void MainWidget::period3s_slot(void)
-{
-    m_PeriodAction_3->setChecked(true);
-    m_Period = 3000;
-    m_timer->stop();
-    m_timer->start(m_Period);
-}
-
-void MainWidget::period4s_slot(void)
-{
-    m_PeriodAction_4->setChecked(true);
-    m_Period = 4000;
-    m_timer->stop();
-    m_timer->start(m_Period);
 }
 
 void MainWidget::paintEvent(QPaintEvent *event)
@@ -245,12 +187,22 @@ void MainWidget::layoutInit(void)
 
 void MainWidget::scanTimeout_slot(void)
 {
-    m_Angle += 18000.0 / m_Period;
-    if(m_Angle >= 360)
+    int iMSecond = QDateTime().currentDateTime().toString("zzz").toInt();
+    if(9888 != m_iPreAngleTime)
     {
-        m_Angle = 0;
+        if(iMSecond < m_iPreAngleTime)
+        {
+            iMSecond = iMSecond + 1000;
+        }
+
+        m_Angle += 360.0 / 1000 * (iMSecond - m_iPreAngleTime);
+        if(m_Angle >= 360)
+        {
+            m_Angle = 0;
+        }
+        repaint();
     }
-    repaint();
+    m_iPreAngleTime = iMSecond;
 }
 
 void MainWidget::timeout_slot(void)
@@ -578,7 +530,7 @@ bool MainWidget::getNetworkSpeed(void)
 
     if(0 != m_preNetOut && 0 != m_preNetIn)
     {
-        double coeffcient = (double)(m_Period + nowTime - m_preTime) / 1000;
+        double coeffcient = (double)(1000 + nowTime - m_preTime) / 1000;
         //download and upload speed should keep same unit
         QStringList speedlist = getSpeedInfo(((double)(NowIn - m_preNetIn)) / coeffcient, ((double)(NowOut - m_preNetOut)) / coeffcient).split("|");
         m_Upload = speedlist.at(0);

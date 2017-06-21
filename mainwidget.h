@@ -60,10 +60,6 @@ public slots:
     void scanTimeout_slot(void);
     void quitApp_slot(void);
     void about_slot(void);
-    void period1s_slot(void);
-    void period2s_slot(void);
-    void period3s_slot(void);
-    void period4s_slot(void);
 protected:
     void paintEvent(QPaintEvent *event);
     void mousePressEvent(QMouseEvent *event);
@@ -78,12 +74,6 @@ private:
     QSystemTrayIcon* m_TrayIcon;
     QAction* m_QuitAction;
     QAction* m_AboutAction;
-    QMenu* m_PeriodAction;
-    QActionGroup* Perion_ActionGroup;
-    QAction* m_PeriodAction_1;
-    QAction* m_PeriodAction_2;
-    QAction* m_PeriodAction_3;
-    QAction* m_PeriodAction_4;
     QMenu* m_Menu;
 
     void layoutInit(void);
@@ -120,8 +110,8 @@ private:
 
     float m_dpi;
     QPoint m_dragPosition;
+    int m_iPreAngleTime;
     double m_Angle;
-    int m_Period;
 };
 
 #endif // MAINWIDGET_H
