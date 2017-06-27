@@ -2,7 +2,6 @@
 #define MAINWIDGET_H
 
 #include <QtWidgets>
-#include <QLibrary>
 
 #ifdef Q_OS_WIN32
 //to use dll directory,define then by self
@@ -48,6 +47,16 @@ typedef struct _MIB_IFTABLE
 typedef DWORD (*GetIfTable)(PMIB_IFTABLE, PULONG, BOOL);
 #endif
 
+struct CONFIG_S
+{
+    int PosX;
+    int PosY;
+    QColor Color;
+    int Version;
+};
+
+extern CONFIG_S g_Config;
+
 class MainWidget : public QWidget
 {
     Q_OBJECT
@@ -60,10 +69,12 @@ public slots:
     void scanTimeout_slot(void);
     void quitApp_slot(void);
     void about_slot(void);
+    void changeColor_slot(QAction *action);
 protected:
     void paintEvent(QPaintEvent *event);
     void mousePressEvent(QMouseEvent *event);
     void mouseMoveEvent(QMouseEvent *event);
+    void mouseReleaseEvent(QMouseEvent *event);
     void contextMenuEvent(QContextMenuEvent *event);
 private:
     QLabel* CpuRate_Label;
@@ -74,6 +85,11 @@ private:
     QSystemTrayIcon* m_TrayIcon;
     QAction* m_QuitAction;
     QAction* m_AboutAction;
+    QAction* m_GreenAction;
+    QAction* m_GrayAction;
+    QAction* m_BlueAction;
+    QAction* m_SelfDefineAction;
+    QMenu* m_ColorMenu;
     QMenu* m_Menu;
 
     void layoutInit(void);
@@ -87,21 +103,10 @@ private:
     QTimer* m_scanTimer;
 
     int m_preTime;
-#ifdef Q_OS_WIN32
-    int delOfInt64(FILETIME subtrahend, FILETIME minuend);
-    GetIfTable m_funcGetIfTable;
-    QLibrary m_lib;
-    DWORD m_preNetIn;
-    DWORD m_preNetOut;
-    FILETIME m_preIdleTime;
-    FILETIME m_preKernelTime;
-    FILETIME m_preUserTime;
-#elif defined Q_OS_LINUX
+    long m_preNetIn;
+    long m_preNetOut;
     long long m_preIdleTime;
     long long m_preAllTime;
-    long long m_preNetIn;
-    long long m_preNetOut;
-#endif
 
     uint m_MemeoryRate;
     uint m_CpuRate;

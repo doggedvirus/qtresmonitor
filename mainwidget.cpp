@@ -1,9 +1,12 @@
 #include "mainwidget.h"
 #include <QFile>
+#include <QLibrary>
 #include <QString>
 #include <QByteArray>
 #include <QStringList>
 #include <QDataStream>
+
+CONFIG_S g_Config;
 
 MainWidget::MainWidget(QWidget *parent)
     : QWidget(parent)
@@ -11,7 +14,7 @@ MainWidget::MainWidget(QWidget *parent)
     m_dpi = qApp->primaryScreen()->logicalDotsPerInchX() / 120.0;
 
     QPalette pa;
-    pa.setColor(QPalette::WindowText,Qt::green);
+    pa.setColor(QPalette::WindowText, g_Config.Color);
 
     CpuRate_Label = new QLabel(this);
     CpuRate_Label->setPalette(pa);
@@ -30,7 +33,17 @@ MainWidget::MainWidget(QWidget *parent)
 
     m_QuitAction = new QAction("Quit",this);
     m_AboutAction = new QAction("About",this);
+    m_GreenAction = new QAction("Green",this);
+    m_GrayAction = new QAction("Gray",this);
+    m_BlueAction = new QAction("Blue",this);
+    m_SelfDefineAction = new QAction("Custom",this);
+    m_ColorMenu = new QMenu("Color", this);
+    m_ColorMenu->addAction(m_GreenAction);
+    m_ColorMenu->addAction(m_GrayAction);
+    m_ColorMenu->addAction(m_BlueAction);
+    m_ColorMenu->addAction(m_SelfDefineAction);
     m_Menu = new QMenu(this);
+    m_Menu->addMenu(m_ColorMenu);
     m_Menu->addAction(m_AboutAction);
     m_Menu->addAction(m_QuitAction);
 
@@ -41,33 +54,21 @@ MainWidget::MainWidget(QWidget *parent)
 
     connect(m_QuitAction,SIGNAL(triggered()),this, SLOT(quitApp_slot()));
     connect(m_AboutAction,SIGNAL(triggered()),this, SLOT(about_slot()));
-    this->setFixedSize(220 * m_dpi, 105 * m_dpi);
+    connect(m_ColorMenu,SIGNAL(triggered(QAction*)),this, SLOT(changeColor_slot(QAction*)));
+    this->setFixedSize(220 * m_dpi, 110 * m_dpi);
 
     layoutInit();
 
-#ifdef Q_OS_WIN32
-    //usually,iphlpapi.dll has existed in windows
-    m_lib.setFileName("iphlpapi.dll");
-    m_lib.load();
-    m_funcGetIfTable = (GetIfTable)m_lib.resolve("GetIfTable");
-
     m_preNetIn = 0;
     m_preNetOut = 0;
-    memset(&m_preIdleTime, 0, sizeof(FILETIME));
-    memset(&m_preKernelTime, 0, sizeof(FILETIME));
-    memset(&m_preUserTime, 0, sizeof(FILETIME));
-#elif defined Q_OS_LINUX
     m_preIdleTime = 0;
     m_preAllTime = 0;
-    m_preNetIn = 0;
-    m_preNetOut = 0;
- #endif
 
     m_MemeoryRate = 0;
     m_CpuRate = 0;
 
     m_Angle = 0;
-    m_iPreAngleTime = 9888;//initial value
+    m_iPreAngleTime = 9888;//just initial value
     m_timer->start(1000);
     m_scanTimer->start(50);
 }
@@ -94,18 +95,18 @@ void MainWidget::paintEvent(QPaintEvent *event)
 {
     //draw a radar
     QPainter painter_horizon(this);
-    painter_horizon.setPen(QPen(Qt::green));
-    QConicalGradient conicalGradient(50 * m_dpi,50 * m_dpi,180.0 - m_Angle);
-    conicalGradient.setColorAt(0,Qt::green);
-    conicalGradient.setColorAt(1.0,QColor(255,255,255,0));
+    painter_horizon.setPen(QPen(g_Config.Color));
+    QConicalGradient conicalGradient(52 * m_dpi,52 * m_dpi,180.0 - m_Angle);
+    conicalGradient.setColorAt(0, g_Config.Color);
+    conicalGradient.setColorAt(1.0, QColor(255,255,255,0));
     painter_horizon.setBrush(QBrush(conicalGradient));
-    painter_horizon.drawEllipse(0 * m_dpi,0 * m_dpi,100 * m_dpi,100 * m_dpi);
+    painter_horizon.drawEllipse(2 * m_dpi,2 * m_dpi,100 * m_dpi,100 * m_dpi);
 
     QPainter painter(this);
-    painter.setPen(QPen(Qt::green));
-    painter.drawLine(0,50 * m_dpi,100 * m_dpi,50 * m_dpi);
-    painter.drawLine(50 * m_dpi,0,50 * m_dpi,100 * m_dpi);
-    painter.drawEllipse(20 * m_dpi,20 * m_dpi,60 * m_dpi,60 * m_dpi);
+    painter.setPen(QPen(g_Config.Color));
+    painter.drawLine(2 * m_dpi, 52 * m_dpi, 102 * m_dpi, 52 * m_dpi);
+    painter.drawLine(52 * m_dpi, 2 * m_dpi, 52 * m_dpi, 102 * m_dpi);
+    painter.drawEllipse(22 * m_dpi, 22 * m_dpi, 60 * m_dpi, 60 * m_dpi);
 
     //draw the line from radar to data
     QPoint p1;
@@ -170,6 +171,21 @@ void MainWidget::mouseMoveEvent(QMouseEvent *event)
 
     QWidget::mouseMoveEvent(event);
 }
+void MainWidget::mouseReleaseEvent(QMouseEvent *event)
+{
+    //hide radar when it move to right hand
+    if(this->pos().x() + 100 * m_dpi > qApp->primaryScreen()->size().width())
+    {
+        move(qApp->primaryScreen()->size().width() - 1 * m_dpi, this->pos().y());
+    }
+
+    QString FileName = QCoreApplication::applicationDirPath() + "/config.ini";
+    QSettings *pConfig = new QSettings(FileName, QSettings::IniFormat);
+    pConfig->setValue("Basic/PositionX", this->pos().x());
+    pConfig->setValue("Basic/PositionY", this->pos().y());
+    delete pConfig;
+    QWidget::mouseReleaseEvent(event);
+}
 
 void MainWidget::contextMenuEvent(QContextMenuEvent *event)
 {
@@ -190,12 +206,17 @@ void MainWidget::scanTimeout_slot(void)
     int iMSecond = QDateTime().currentDateTime().toString("zzz").toInt();
     if(9888 != m_iPreAngleTime)
     {
-        if(iMSecond < m_iPreAngleTime)
+        int iDifferent = 0;
+        if(iMSecond <= m_iPreAngleTime)
         {
-            iMSecond = iMSecond + 1000;
+            iDifferent = iMSecond + 1000 - m_iPreAngleTime;
+        }
+        else
+        {
+            iDifferent = iMSecond - m_iPreAngleTime;
         }
 
-        m_Angle += 360.0 / 1000 * (iMSecond - m_iPreAngleTime);
+        m_Angle =  m_Angle + 360.0 / 1000 * iDifferent;
         if(m_Angle >= 360)
         {
             m_Angle = 0;
@@ -214,45 +235,11 @@ void MainWidget::timeout_slot(void)
         RamRate_Label->adjustSize();
     }
 
-//    MEMORYSTATUSEX memsStat;
-//    memsStat.dwLength = sizeof(memsStat);
-//    if(GlobalMemoryStatusEx(&memsStat))
-//    {
-//        int nMemFree = memsStat.ullAvailPhys / (1024 * 1024);
-//        int nMemTotal = memsStat.ullTotalPhys / (1024 * 1024);
-
-//        m_MemeoryRate = (nMemTotal - nMemFree) * 100 / nMemTotal;
-//        RamRate_Label->setText(QString("RAM %1\%").arg(m_MemeoryRate));
-//        RamRate_Label->adjustSize();
-//    }
-
     if(getCpuRate())
     {
         CpuRate_Label->setText(QString("CPU %1\%").arg(m_CpuRate));
         CpuRate_Label->adjustSize();
     }
-
-    //cpu
-//    FILETIME IdleTime;
-//    FILETIME KernelTime;
-//    FILETIME UserTime;
-//    if(GetSystemTimes(&IdleTime, &KernelTime, &UserTime))
-//    {
-//        if(0 != m_preIdleTime.dwHighDateTime &&  0 != m_preIdleTime.dwLowDateTime)
-//        {
-//            int idle = delOfInt64(IdleTime, m_preIdleTime);
-//            int kernel = delOfInt64(KernelTime,m_preKernelTime);
-//            int user = delOfInt64(UserTime,m_preUserTime);
-
-//            //confirm rate > 0
-//            m_CpuRate = (double)(kernel + user - idle) / (double)(kernel + user) * 100 / 1;
-//            CpuRate_Label->setText(QString("CPU %1\%").arg(m_CpuRate));
-//            CpuRate_Label->adjustSize();
-//        }
-//        m_preIdleTime = IdleTime;
-//        m_preKernelTime = KernelTime;
-//        m_preUserTime = UserTime;
-//    }
 
     if(getNetworkSpeed())
     {
@@ -261,60 +248,6 @@ void MainWidget::timeout_slot(void)
         downloadSpeed_Label->setText("↓ " + m_Download);
         downloadSpeed_Label->adjustSize();
     }
-
-    //network
-//    PMIB_IFTABLE m_pTable = NULL;
-//    DWORD m_dwAdapters = 0;
-//    //first call is just get the m_dwAdapters's value
-//    //more detail,pls see https://msdn.microsoft.com/en-us/library/windows/desktop/aa365943(v=vs.85).aspx
-//    m_funcGetIfTable(m_pTable, &m_dwAdapters, FALSE);
-
-//    m_pTable = (PMIB_IFTABLE)new BYTE[m_dwAdapters];
-//    //speed = sum / time,so it should record the time
-//    int nowTime = QDateTime().currentDateTime().toString("zzz").toInt();
-//    m_funcGetIfTable(m_pTable, &m_dwAdapters, FALSE);
-//    DWORD NowIn = 0;
-//    DWORD NowOut = 0;
-//    QList<int> typeList;
-//    for (UINT i = 0; i < m_pTable->dwNumEntries; i++)
-//    {
-//        MIB_IFROW Row = m_pTable->table[i];
-//        //1 type should only be count only once
-//        bool bExist = false;
-//        for(int j = 0;j < typeList.count();j++)
-//        {
-//            if(typeList.at(j) == (int)Row.dwType)
-//            {
-//                bExist = true;
-//                break;
-//            }
-//        }
-
-//        if(false == bExist
-//           && (Row.dwInOctets != 0 || Row.dwOutOctets != 0))
-//        {
-//            typeList.append(Row.dwType);
-//            NowIn += Row.dwInOctets;
-//            NowOut += Row.dwOutOctets;
-//        }
-//    }
-//    delete []m_pTable;
-
-//    if(0 != m_preNetOut && 0 != m_preNetIn)
-//    {
-//        double coeffcient = (double)(m_Period + nowTime - m_preTime) / 1000;
-//        //download and upload speed should keep same unit
-//        QStringList speedlist = getSpeedInfo((int)(NowIn - m_preNetIn) / coeffcient, (int)(NowOut - m_preNetOut) / coeffcient).split("|");
-//        m_Upload = speedlist.at(0);
-//        m_Download = speedlist.at(1);
-//        uploadSpeed_Label->setText("↑ " + m_Upload);
-//        uploadSpeed_Label->adjustSize();
-//        downloadSpeed_Label->setText("↓ " + m_Download);
-//        downloadSpeed_Label->adjustSize();
-//    }
-//    m_preTime = nowTime;
-//    m_preNetOut = NowOut;
-//    m_preNetIn = NowIn;
 
     //refresh widget
     update();
@@ -352,25 +285,6 @@ QString MainWidget::getSpeedInfo(double downloadSpeed, double uploadSpeed)
     QString ret = QString("%1%2|%3%2").arg(uploadSpeed).arg(speedString).arg(downloadSpeed);
     return ret;
 }
-
-#ifdef Q_OS_WIN32
-int MainWidget::delOfInt64(FILETIME subtrahend, FILETIME minuend)
-{
-    __int64 a = (__int64)(subtrahend.dwHighDateTime) << 32 | (__int64)subtrahend.dwLowDateTime ;
-    __int64 b = (__int64)(minuend.dwHighDateTime) << 32 | (__int64)minuend.dwLowDateTime ;
-
-    uint answer = 0;
-    if(a > b)
-    {
-        answer = a - b;
-    }
-    else
-    {
-        answer = 0xFFFFFFFFFFFFFFFF - a + b;
-    }
-    return answer;
-}
-#endif
 
 bool MainWidget::getRamRate(void)
 {
@@ -430,24 +344,22 @@ bool MainWidget::getCpuRate(void)
 {
     bool bRet = false;
 #ifdef Q_OS_WIN32
-    FILETIME IdleTime;
-    FILETIME KernelTime;
-    FILETIME UserTime;
-    bRet = GetSystemTimes(&IdleTime, &KernelTime, &UserTime);
-    if(bRet)
+    long long IdleTime;
+    long long KernelTime;
+    long long UserTime;
+    if(GetSystemTimes((LPFILETIME)&IdleTime, (LPFILETIME)&KernelTime, (LPFILETIME)&UserTime))
     {
-        if(0 != m_preIdleTime.dwHighDateTime &&  0 != m_preIdleTime.dwLowDateTime)
+        if(0 != m_preIdleTime)
         {
-            int idle = delOfInt64(IdleTime, m_preIdleTime);
-            int kernel = delOfInt64(KernelTime,m_preKernelTime);
-            int user = delOfInt64(UserTime,m_preUserTime);
+            uint idle = IdleTime - m_preIdleTime;
+            uint all = KernelTime + UserTime - m_preAllTime;
 
             //confirm rate > 0
-            m_CpuRate = (double)(kernel + user - idle) / (double)(kernel + user) * 100 / 1;
+            m_CpuRate = (all - idle) * 100 / all;
+            bRet = true;
         }
         m_preIdleTime = IdleTime;
-        m_preKernelTime = KernelTime;
-        m_preUserTime = UserTime;
+        m_preAllTime = KernelTime + UserTime;
     }
 #elif defined Q_OS_LINUX
     QFile file("/proc/stat");
@@ -490,56 +402,65 @@ bool MainWidget::getNetworkSpeed(void)
 {
     bool bRet = false;
 #ifdef Q_OS_WIN32
-    PMIB_IFTABLE m_pTable = NULL;
-    DWORD m_dwAdapters = 0;
-    //first call is just get the m_dwAdapters's value
-    //more detail,pls see https://msdn.microsoft.com/en-us/library/windows/desktop/aa365943(v=vs.85).aspx
-
-    m_funcGetIfTable(m_pTable, &m_dwAdapters, FALSE);
-
-    m_pTable = (PMIB_IFTABLE)new BYTE[m_dwAdapters];
-    //speed = sum / time,so it should record the time
-    int nowTime = QDateTime().currentDateTime().toString("zzz").toInt();
-    m_funcGetIfTable(m_pTable, &m_dwAdapters, FALSE);
-    DWORD NowIn = 0;
-    DWORD NowOut = 0;
-    QList<int> typeList;
-    for (UINT i = 0; i < m_pTable->dwNumEntries; i++)
+    GetIfTable func_GetIfTable;
+    QLibrary lib;
+    //usually,iphlpapi.dll has existed in windows
+    lib.setFileName("iphlpapi.dll");
+    lib.load();
+    func_GetIfTable = (GetIfTable)lib.resolve("GetIfTable");
+    if(NULL != func_GetIfTable)
     {
-        MIB_IFROW Row = m_pTable->table[i];
-        //1 type should only be count only once
-        bool bExist = false;
-        for(int j = 0;j < typeList.count();j++)
+        PMIB_IFTABLE m_pTable = NULL;
+        DWORD m_dwAdapters = 0;
+        //first call is just get the m_dwAdapters's value
+        //more detail,pls see https://msdn.microsoft.com/en-us/library/windows/desktop/aa365943(v=vs.85).aspx
+
+        func_GetIfTable(m_pTable, &m_dwAdapters, FALSE);
+
+        m_pTable = (PMIB_IFTABLE)new BYTE[m_dwAdapters];
+        //speed = sum / time,so it should record the time
+        int nowTime = QDateTime().currentDateTime().toString("zzz").toInt();
+        func_GetIfTable(m_pTable, &m_dwAdapters, FALSE);
+        long NowIn = 0;
+        DWORD NowOut = 0;
+        QList<int> typeList;
+        for (UINT i = 0; i < m_pTable->dwNumEntries; i++)
         {
-            if(typeList.at(j) == (int)Row.dwType)
+            MIB_IFROW Row = m_pTable->table[i];
+            //1 type should only be count only once
+            bool bExist = false;
+            for(int j = 0;j < typeList.count();j++)
             {
-                bExist = true;
-                break;
+                if(typeList.at(j) == (int)Row.dwType)
+                {
+                    bExist = true;
+                    break;
+                }
+            }
+
+            if(false == bExist
+               && (Row.dwInOctets != 0 || Row.dwOutOctets != 0))
+            {
+                typeList.append(Row.dwType);
+                NowIn += Row.dwInOctets;
+                NowOut += Row.dwOutOctets;
             }
         }
+        delete []m_pTable;
 
-        if(false == bExist
-           && (Row.dwInOctets != 0 || Row.dwOutOctets != 0))
+        if(0 != m_preNetOut && 0 != m_preNetIn)
         {
-            typeList.append(Row.dwType);
-            NowIn += Row.dwInOctets;
-            NowOut += Row.dwOutOctets;
+            double coeffcient = (double)(1000 + nowTime - m_preTime) / 1000;
+            //download and upload speed should keep same unit
+            QStringList speedlist = getSpeedInfo(((double)(NowIn - m_preNetIn)) / coeffcient, ((double)(NowOut - m_preNetOut)) / coeffcient).split("|");
+            m_Upload = speedlist.at(0);
+            m_Download = speedlist.at(1);
+            bRet = true;
         }
+        m_preTime = nowTime;
+        m_preNetOut = NowOut;
+        m_preNetIn = NowIn;
     }
-    delete []m_pTable;
-
-    if(0 != m_preNetOut && 0 != m_preNetIn)
-    {
-        double coeffcient = (double)(1000 + nowTime - m_preTime) / 1000;
-        //download and upload speed should keep same unit
-        QStringList speedlist = getSpeedInfo(((double)(NowIn - m_preNetIn)) / coeffcient, ((double)(NowOut - m_preNetOut)) / coeffcient).split("|");
-        m_Upload = speedlist.at(0);
-        m_Download = speedlist.at(1);
-        bRet = true;
-    }
-    m_preTime = nowTime;
-    m_preNetOut = NowOut;
-    m_preNetIn = NowIn;
 #elif defined Q_OS_LINUX
     QFile file("/proc/net/dev");
     if(file.open(QIODevice::ReadOnly))
@@ -555,8 +476,8 @@ bool MainWidget::getNetworkSpeed(void)
             QTextStream s(array);
             QString s1,s2,s3,s4,s5,s6,s7,s8,s9,s10;
             s>>s1>>s2>>s3>>s4>>s5>>s6>>s7>>s8>>s9>>s10;
-            NowIn += s2.toLongLong();
-            NowOut += s10.toLongLong();
+            NowIn += s2.toLong();
+            NowOut += s10.toLong();
             array = file.readLine();
         }
 
@@ -576,4 +497,45 @@ bool MainWidget::getNetworkSpeed(void)
     }
 #endif
     return bRet;
+}
+
+void MainWidget::changeColor_slot(QAction *action)
+{
+    if(0 == action->text().compare("Green"))
+    {
+        g_Config.Color = QColor(Qt::green);
+    }
+    else if(0 == action->text().compare("Gray"))
+    {
+        g_Config.Color = QColor(Qt::gray);
+    }
+    else if(0 == action->text().compare("Blue"))
+    {
+        g_Config.Color = QColor(Qt::blue);
+    }
+    else
+    {
+        QPalette palette = QPalette(g_Config.Color);
+        QColor color = QColorDialog::getColor(palette.color(QPalette::Button),this,QString(),0);
+        if (false == color.isValid())
+        {
+            return;
+        }
+
+        g_Config.Color = color;
+    }
+
+    QString FileName = QCoreApplication::applicationDirPath() + "/config.ini";
+    QSettings *pConfig = new QSettings(FileName, QSettings::IniFormat);
+    pConfig->setValue("Basic/Color", QString("%1 %2 %3").arg(g_Config.Color.red()).arg(g_Config.Color.green()).arg(g_Config.Color.blue()));
+    delete pConfig;
+
+    QPalette pa;
+    pa.setColor(QPalette::WindowText, g_Config.Color);
+    CpuRate_Label->setPalette(pa);
+    RamRate_Label->setPalette(pa);
+    uploadSpeed_Label->setPalette(pa);
+    downloadSpeed_Label->setPalette(pa);
+
+    repaint();
 }
