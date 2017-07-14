@@ -6,15 +6,22 @@
 #include <QStringList>
 #include <QDataStream>
 
-CONFIG_S g_Config;
-
 MainWidget::MainWidget(QWidget *parent)
     : QWidget(parent)
 {
     m_dpi = qApp->primaryScreen()->logicalDotsPerInchX() / 120.0;
 
+    QString FileName = QCoreApplication::applicationDirPath() + "/config.ini";
+    QSettings *pConfig = new QSettings(FileName, QSettings::IniFormat);
+    m_Color = getColorFromArray(pConfig->value("Basic/Color").toByteArray());
+    m_displayC = pConfig->value("Basic/DisplayC").toInt();
+    m_rx = pConfig->value("Basic/RelativeX").toInt();
+    m_ry = pConfig->value("Basic/RelativeY").toInt();
+    m_hide = pConfig->value("Basic/Hide").toBool();
+    delete pConfig;
+
     QPalette pa;
-    pa.setColor(QPalette::WindowText, g_Config.Color);
+    pa.setColor(QPalette::WindowText, m_Color);
 
     CpuRate_Label = new QLabel(this);
     CpuRate_Label->setPalette(pa);
@@ -33,16 +40,18 @@ MainWidget::MainWidget(QWidget *parent)
 
     m_QuitAction = new QAction("Quit",this);
     m_AboutAction = new QAction("About",this);
-    m_GreenAction = new QAction("Green",this);
-    m_GrayAction = new QAction("Gray",this);
-    m_BlueAction = new QAction("Blue",this);
-    m_SelfDefineAction = new QAction("Custom",this);
     m_ColorMenu = new QMenu("Color", this);
-    m_ColorMenu->addAction(m_GreenAction);
-    m_ColorMenu->addAction(m_GrayAction);
-    m_ColorMenu->addAction(m_BlueAction);
-    m_ColorMenu->addAction(m_SelfDefineAction);
+    m_ColorMenu->addAction("Green");
+    m_ColorMenu->addAction("Gray");
+    m_ColorMenu->addAction("Blue");
+    m_ColorMenu->addAction("Custom");
+    m_DisplayMenu = new QMenu("Display", this);
+    m_DisplayMenu->addAction("80%");
+    m_DisplayMenu->addAction("100%");
+    m_DisplayMenu->addAction("150%");
+    m_DisplayMenu->addAction("200%");
     m_Menu = new QMenu(this);
+    m_Menu->addMenu(m_DisplayMenu);
     m_Menu->addMenu(m_ColorMenu);
     m_Menu->addAction(m_AboutAction);
     m_Menu->addAction(m_QuitAction);
@@ -55,7 +64,7 @@ MainWidget::MainWidget(QWidget *parent)
     connect(m_QuitAction,SIGNAL(triggered()),this, SLOT(quitApp_slot()));
     connect(m_AboutAction,SIGNAL(triggered()),this, SLOT(about_slot()));
     connect(m_ColorMenu,SIGNAL(triggered(QAction*)),this, SLOT(changeColor_slot(QAction*)));
-    this->setFixedSize(220 * m_dpi, 110 * m_dpi);
+    connect(m_DisplayMenu,SIGNAL(triggered(QAction*)),this, SLOT(changeDisplay_slot(QAction*)));
 
     layoutInit();
 
@@ -85,7 +94,7 @@ void MainWidget::quitApp_slot(void)
 
 void MainWidget::about_slot(void)
 {
-    QMessageBox::information(this, "About", QString("Version:0.0.1")
+    QMessageBox::information(this, "About", QString("Version:1.0.0")
                                             + "<br/>Source:<a href=\"https://github.com/doggedvirus/qtresmonitor\">https://github.com/doggedvirus/qtresmonitor</a>"
                                             + "<br/>Author:<a href=\"https://doggedvirus.com/about\">https://doggedvirus.com/about</a>"
                                             + "<br/>Icon Designer:<a href=\"http://weibo.com/foreverdrawing\">http://weibo.com/foreverdrawing</a>");
@@ -93,59 +102,112 @@ void MainWidget::about_slot(void)
 
 void MainWidget::paintEvent(QPaintEvent *event)
 {
-    //draw a radar
-    QPainter painter_horizon(this);
-    painter_horizon.setPen(QPen(g_Config.Color));
-    QConicalGradient conicalGradient(52 * m_dpi,52 * m_dpi,180.0 - m_Angle);
-    conicalGradient.setColorAt(0, g_Config.Color);
-    conicalGradient.setColorAt(1.0, QColor(255,255,255,0));
-    painter_horizon.setBrush(QBrush(conicalGradient));
-    painter_horizon.drawEllipse(2 * m_dpi,2 * m_dpi,100 * m_dpi,100 * m_dpi);
-
-    QPainter painter(this);
-    painter.setPen(QPen(g_Config.Color));
-    painter.drawLine(2 * m_dpi, 52 * m_dpi, 102 * m_dpi, 52 * m_dpi);
-    painter.drawLine(52 * m_dpi, 2 * m_dpi, 52 * m_dpi, 102 * m_dpi);
-    painter.drawEllipse(22 * m_dpi, 22 * m_dpi, 60 * m_dpi, 60 * m_dpi);
-
-    //draw the line from radar to data
-    QPoint p1;
-    QPoint p2;
-    QPoint p3;
-    if(m_Angle >= 120 && m_Angle < 240)
+    QScreen *pscreen = qApp->primaryScreen();
+    QSize screenSize = pscreen->size();
+    //if screen change,to confirm widget will fit new screen
+    if(m_preScreenSize != screenSize)
     {
-        p1 = QPoint(60 * m_dpi, 32.7 * m_dpi);
-        p2 = QPoint(72.7 * m_dpi, 20 * m_dpi);
-        p3 = QPoint(105 * m_dpi, 20 * m_dpi);
-        painter.drawLine(p1, p2);
-        painter.drawLine(p2, p3);
+        move(screenSize.width() * m_rx / 1000, screenSize.height() * m_ry / 1000);
+        m_dpi = pscreen->physicalDotsPerInch() * pscreen->physicalSize().width() * m_displayC / 5316000;
+        QFont font  = qApp->font();
+        font.setPixelSize(20 * m_dpi);
+        qApp->setFont(font);
+        m_preScreenSize = screenSize;
     }
 
-    if(m_Angle >= 150 && m_Angle < 270)
+    //use mouse's position to judge if it is on the widget
+    QPoint mouse = cursor().pos();
+    bool bOnWidget = false;
+    if(mouse.x() >= this->x() && mouse.x() <= this->x() + this->width()
+       && mouse.y() >= this->y() && mouse.y() <= this->y() + this->height())
     {
-        p1 = QPoint(57.6 * m_dpi, 45 * m_dpi);
-        p2 = QPoint(62.6 * m_dpi, 40 * m_dpi);
-        p3 = QPoint(105 * m_dpi, 40 * m_dpi);
-        painter.drawLine(p1, p2);
-        painter.drawLine(p2, p3);
+        bOnWidget = true;
     }
 
-    if(m_Angle >= 210 && m_Angle < 330)
+    if(m_hide && false == bOnWidget)
     {
-        p1 = QPoint(57.6 * m_dpi, 55 * m_dpi);
-        p2 = QPoint(62.6 * m_dpi, 60 * m_dpi);
-        p3 = QPoint(105 * m_dpi, 60 * m_dpi);
-        painter.drawLine(p1, p2);
-        painter.drawLine(p2, p3);
+        if(this->x() != (screenSize.width() - 10 * m_dpi) * 1000 / screenSize.width())
+        {
+            move(screenSize.width() * m_rx / 1000, screenSize.height() * m_ry / 1000);
+        }
+        setFixedSize(10 * m_dpi, 100 * m_dpi);
+        QPainter painter(this);
+        painter.setPen(QPen(m_Color, m_dpi));
+        painter.setBrush(QBrush(Qt::white));
+        painter.drawRect(0, 99 * m_dpi, 9 * m_dpi, -99 * m_dpi);
+        painter.setBrush(QBrush(m_Color));
+        painter.drawRect(0, 99 * m_dpi, 9 * m_dpi, - (m_MemeoryRate * m_dpi));
     }
-
-    if(m_Angle >= 240 && m_Angle < 360)
+    else
     {
-        p1 = QPoint(60 * m_dpi, 67.3 * m_dpi);
-        p2 = QPoint(72.7 * m_dpi, 80 * m_dpi);
-        p3 = QPoint(105 * m_dpi, 80 * m_dpi);
-        painter.drawLine(p1, p2);
-        painter.drawLine(p2, p3);
+        //show complete information when mouse on it
+        if(m_hide && bOnWidget)
+        {
+            if(m_rx > 500)
+            {
+                move(screenSize.width() - 220 * m_dpi, screenSize.height() * m_ry / 1000);
+            }
+            else
+            {
+                move(0, screenSize.height() * m_ry / 1000);
+            }
+        }
+
+        setFixedSize(220 * m_dpi, 110 * m_dpi);
+        //draw a radar
+        QPainter painter_horizon(this);
+        painter_horizon.setPen(QPen(m_Color, m_dpi));
+        QConicalGradient conicalGradient(52 * m_dpi,52 * m_dpi,180.0 - m_Angle);
+        conicalGradient.setColorAt(0, m_Color);
+        conicalGradient.setColorAt(1.0, QColor(255,255,255,0));
+        painter_horizon.setBrush(QBrush(conicalGradient));
+        painter_horizon.drawEllipse(2 * m_dpi,2 * m_dpi,100 * m_dpi,100 * m_dpi);
+
+        QPainter painter(this);
+        painter.setPen(QPen(m_Color, m_dpi));
+        painter.drawLine(2 * m_dpi, 52 * m_dpi, 102 * m_dpi, 52 * m_dpi);
+        painter.drawLine(52 * m_dpi, 2 * m_dpi, 52 * m_dpi, 102 * m_dpi);
+        painter.drawEllipse(22 * m_dpi, 22 * m_dpi, 60 * m_dpi, 60 * m_dpi);
+
+        //draw the line from radar to data
+        QPoint p1;
+        QPoint p2;
+        QPoint p3;
+        if(m_Angle >= 120 && m_Angle < 240)
+        {
+            p1 = QPoint(60 * m_dpi, 32.7 * m_dpi);
+            p2 = QPoint(72.7 * m_dpi, 20 * m_dpi);
+            p3 = QPoint(105 * m_dpi, 20 * m_dpi);
+            painter.drawLine(p1, p2);
+            painter.drawLine(p2, p3);
+        }
+
+        if(m_Angle >= 150 && m_Angle < 270)
+        {
+            p1 = QPoint(57.6 * m_dpi, 45 * m_dpi);
+            p2 = QPoint(62.6 * m_dpi, 40 * m_dpi);
+            p3 = QPoint(105 * m_dpi, 40 * m_dpi);
+            painter.drawLine(p1, p2);
+            painter.drawLine(p2, p3);
+        }
+
+        if(m_Angle >= 210 && m_Angle < 330)
+        {
+            p1 = QPoint(57.6 * m_dpi, 55 * m_dpi);
+            p2 = QPoint(62.6 * m_dpi, 60 * m_dpi);
+            p3 = QPoint(105 * m_dpi, 60 * m_dpi);
+            painter.drawLine(p1, p2);
+            painter.drawLine(p2, p3);
+        }
+
+        if(m_Angle >= 240 && m_Angle < 360)
+        {
+            p1 = QPoint(60 * m_dpi, 67.3 * m_dpi);
+            p2 = QPoint(72.7 * m_dpi, 80 * m_dpi);
+            p3 = QPoint(105 * m_dpi, 80 * m_dpi);
+            painter.drawLine(p1, p2);
+            painter.drawLine(p2, p3);
+        }
     }
 
     layoutInit();
@@ -153,6 +215,7 @@ void MainWidget::paintEvent(QPaintEvent *event)
 }
 void MainWidget::mousePressEvent(QMouseEvent *event)
 {
+    m_hide = false;
     if (event->button() == Qt::LeftButton)
     {
         m_dragPosition = event->globalPos() - frameGeometry().topLeft();
@@ -173,17 +236,43 @@ void MainWidget::mouseMoveEvent(QMouseEvent *event)
 }
 void MainWidget::mouseReleaseEvent(QMouseEvent *event)
 {
+    QSize screenSize = qApp->primaryScreen()->size();
+    QPoint now = pos();
+    m_rx = now.x() * 1000 / screenSize.width();
+    m_ry = now.y() * 1000 / screenSize.height();
+
     //hide radar when it move to right hand
-    if(this->pos().x() + 100 * m_dpi > qApp->primaryScreen()->size().width())
+    if(now.x() + 100 * m_dpi > screenSize.width())
     {
-        move(qApp->primaryScreen()->size().width() - 1 * m_dpi, this->pos().y());
+        m_hide = true;
+        m_rx = (screenSize.width() - 10 * m_dpi) * 1000 / screenSize.width();
+    }
+    else if(now.x() < 0)
+    {
+        m_hide = true;
+        m_rx = 0;
+    }
+    else
+    {
+        m_hide = false;
+    }
+
+    if(now.y() + 100 * m_dpi > screenSize.height())
+    {
+        m_ry = 900;
+    }
+    else if(now.x()  + 100 * m_dpi < 0)
+    {
+        m_ry = 100;
     }
 
     QString FileName = QCoreApplication::applicationDirPath() + "/config.ini";
     QSettings *pConfig = new QSettings(FileName, QSettings::IniFormat);
-    pConfig->setValue("Basic/PositionX", this->pos().x());
-    pConfig->setValue("Basic/PositionY", this->pos().y());
+    pConfig->setValue("Basic/RelativeX", m_rx);
+    pConfig->setValue("Basic/RelativeY", m_ry);
+    pConfig->setValue("Basic/Hide", m_hide);
     delete pConfig;
+    move(screenSize.width() * m_rx / 1000, screenSize.height() *m_ry / 1000);
     QWidget::mouseReleaseEvent(event);
 }
 
@@ -199,6 +288,14 @@ void MainWidget::layoutInit(void)
     RamRate_Label->move(110 * m_dpi, 30 * m_dpi);
     uploadSpeed_Label->move(110 * m_dpi, 50 * m_dpi);
     downloadSpeed_Label->move(110 * m_dpi, 70 * m_dpi);
+}
+
+QColor MainWidget::getColorFromArray(QByteArray array)
+{
+    QString r,g,b;
+    QTextStream stream(array);
+    stream>>r>>g>>b;
+    return QColor(r.toInt(), g.toInt(), b.toInt());
 }
 
 void MainWidget::scanTimeout_slot(void)
@@ -483,7 +580,7 @@ bool MainWidget::getNetworkSpeed(void)
 
         if(0 != m_preNetOut && 0 != m_preNetIn)
         {
-            double coeffcient = (double)(m_Period + nowTime - m_preTime) / 1000;
+            double coeffcient = (double)(1000 + nowTime - m_preTime) / 1000;
             //download and upload speed should keep same unit
             QStringList speedlist = getSpeedInfo(((double)(NowIn - m_preNetIn)) / coeffcient, ((double)(NowOut - m_preNetOut)) / coeffcient).split("|");
             m_Upload = speedlist.at(0);
@@ -503,39 +600,55 @@ void MainWidget::changeColor_slot(QAction *action)
 {
     if(0 == action->text().compare("Green"))
     {
-        g_Config.Color = QColor(Qt::green);
+        m_Color = QColor(Qt::green);
     }
     else if(0 == action->text().compare("Gray"))
     {
-        g_Config.Color = QColor(Qt::gray);
+        m_Color = QColor(Qt::gray);
     }
     else if(0 == action->text().compare("Blue"))
     {
-        g_Config.Color = QColor(Qt::blue);
+        m_Color = QColor(Qt::blue);
     }
     else
     {
-        QPalette palette = QPalette(g_Config.Color);
-        QColor color = QColorDialog::getColor(palette.color(QPalette::Button),this,QString(),0);
-        if (false == color.isValid())
+        QPalette palette = QPalette(m_Color);
+        QColor selectcolor = QColorDialog::getColor(palette.color(QPalette::Button),this,QString(),0);
+        if (false == selectcolor.isValid())
         {
             return;
         }
 
-        g_Config.Color = color;
+        m_Color = selectcolor;
     }
 
     QString FileName = QCoreApplication::applicationDirPath() + "/config.ini";
     QSettings *pConfig = new QSettings(FileName, QSettings::IniFormat);
-    pConfig->setValue("Basic/Color", QString("%1 %2 %3").arg(g_Config.Color.red()).arg(g_Config.Color.green()).arg(g_Config.Color.blue()));
+    pConfig->setValue("Basic/Color", QString("%1 %2 %3").arg(m_Color.red()).arg(m_Color.green()).arg(m_Color.blue()));
     delete pConfig;
 
     QPalette pa;
-    pa.setColor(QPalette::WindowText, g_Config.Color);
+    pa.setColor(QPalette::WindowText, m_Color);
     CpuRate_Label->setPalette(pa);
     RamRate_Label->setPalette(pa);
     uploadSpeed_Label->setPalette(pa);
     downloadSpeed_Label->setPalette(pa);
 
     repaint();
+}
+
+void MainWidget::changeDisplay_slot(QAction* action)
+{
+    m_displayC = action->text().left(action->text().length() - 1).toInt();
+
+    QString FileName = QCoreApplication::applicationDirPath() + "/config.ini";
+    QSettings *pConfig = new QSettings(FileName, QSettings::IniFormat);
+    pConfig->setValue("Basic/DisplayC", m_displayC);
+    delete pConfig;
+
+    QScreen *pscreen = qApp->primaryScreen();
+    m_dpi = pscreen->physicalDotsPerInch() * pscreen->physicalSize().width() * m_displayC / 5316000;
+    QFont font  = qApp->font();
+    font.setPixelSize(20 * m_dpi);
+    qApp->setFont(font);
 }

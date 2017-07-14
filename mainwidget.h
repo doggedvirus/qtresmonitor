@@ -55,8 +55,6 @@ struct CONFIG_S
     int Version;
 };
 
-extern CONFIG_S g_Config;
-
 class MainWidget : public QWidget
 {
     Q_OBJECT
@@ -64,12 +62,14 @@ class MainWidget : public QWidget
 public:
     MainWidget(QWidget *parent = 0);
     ~MainWidget();
+
 public slots:
     void timeout_slot(void);
     void scanTimeout_slot(void);
     void quitApp_slot(void);
     void about_slot(void);
     void changeColor_slot(QAction *action);
+    void changeDisplay_slot(QAction* action);
 protected:
     void paintEvent(QPaintEvent *event);
     void mousePressEvent(QMouseEvent *event);
@@ -77,6 +77,7 @@ protected:
     void mouseReleaseEvent(QMouseEvent *event);
     void contextMenuEvent(QContextMenuEvent *event);
 private:
+
     QLabel* CpuRate_Label;
     QLabel* RamRate_Label;
     QLabel* uploadSpeed_Label;
@@ -85,14 +86,12 @@ private:
     QSystemTrayIcon* m_TrayIcon;
     QAction* m_QuitAction;
     QAction* m_AboutAction;
-    QAction* m_GreenAction;
-    QAction* m_GrayAction;
-    QAction* m_BlueAction;
-    QAction* m_SelfDefineAction;
+    QMenu* m_DisplayMenu;
     QMenu* m_ColorMenu;
     QMenu* m_Menu;
 
     void layoutInit(void);
+    QColor getColorFromArray(QByteArray array);
     QString getSpeedInfo(double downloadSpeed, double uploadSpeed);
 
     bool getRamRate(void);
@@ -117,6 +116,12 @@ private:
     QPoint m_dragPosition;
     int m_iPreAngleTime;
     double m_Angle;
+    QSize m_preScreenSize;
+    QColor m_Color;
+    int m_displayC;
+    bool m_hide;
+    int m_rx;
+    int m_ry;
 };
 
 #endif // MAINWIDGET_H
