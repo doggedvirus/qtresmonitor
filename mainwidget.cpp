@@ -505,6 +505,7 @@ bool MainWidget::getNetworkSpeed(void)
     lib.setFileName("iphlpapi.dll");
     lib.load();
     func_GetIfTable = (GetIfTable)lib.resolve("GetIfTable");
+
     if(NULL != func_GetIfTable)
     {
         PMIB_IFTABLE m_pTable = NULL;
@@ -518,29 +519,21 @@ bool MainWidget::getNetworkSpeed(void)
         //speed = sum / time,so it should record the time
         int nowTime = QDateTime().currentDateTime().toString("zzz").toInt();
         func_GetIfTable(m_pTable, &m_dwAdapters, FALSE);
-        long NowIn = 0;
+        DWORD NowIn = 0;
         DWORD NowOut = 0;
-        QList<int> typeList;
+        QString Desc;
         for (UINT i = 0; i < m_pTable->dwNumEntries; i++)
         {
             MIB_IFROW Row = m_pTable->table[i];
-            //1 type should only be count only once
-            bool bExist = false;
-            for(int j = 0;j < typeList.count();j++)
-            {
-                if(typeList.at(j) == (int)Row.dwType)
-                {
-                    bExist = true;
-                    break;
-                }
-            }
+            Desc = QString::fromLatin1((char*)Row.bDescr, Row.dwDescrLen - 1);
 
-            if(false == bExist
-               && (Row.dwInOctets != 0 || Row.dwOutOctets != 0))
+            //get rid of unexcept adapter
+            if(false == Desc.contains("Virtual")
+               && false == Desc.contains("Filter")
+               && false == Desc.contains("QoS"))
             {
-                typeList.append(Row.dwType);
-                NowIn += Row.dwInOctets;
-                NowOut += Row.dwOutOctets;
+                NowIn = NowIn + Row.dwInOctets;
+                NowOut = NowOut + Row.dwOutOctets;
             }
         }
         delete []m_pTable;
@@ -549,11 +542,15 @@ bool MainWidget::getNetworkSpeed(void)
         {
             double coeffcient = (double)(1000 + nowTime - m_preTime) / 1000;
             //download and upload speed should keep same unit
-            QStringList speedlist = getSpeedInfo(((double)(NowIn - m_preNetIn)) / coeffcient, ((double)(NowOut - m_preNetOut)) / coeffcient).split("|");
-            m_Upload = speedlist.at(0);
-            m_Download = speedlist.at(1);
-            bRet = true;
+            if(NowIn >= m_preNetIn && NowOut >= m_preNetOut)
+            {
+                QStringList speedlist = getSpeedInfo(((double)(NowIn - m_preNetIn)) / coeffcient, ((double)(NowOut - m_preNetOut)) / coeffcient).split("|");
+                m_Upload = speedlist.at(0);
+                m_Download = speedlist.at(1);
+                bRet = true;
+            }
         }
+
         m_preTime = nowTime;
         m_preNetOut = NowOut;
         m_preNetIn = NowIn;

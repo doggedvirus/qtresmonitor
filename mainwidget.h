@@ -102,8 +102,8 @@ private:
     QTimer* m_scanTimer;
 
     int m_preTime;
-    long m_preNetIn;
-    long m_preNetOut;
+    unsigned long m_preNetIn;
+    unsigned long m_preNetOut;
     long long m_preIdleTime;
     long long m_preAllTime;
 
