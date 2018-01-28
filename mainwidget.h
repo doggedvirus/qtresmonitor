@@ -55,6 +55,33 @@ struct CONFIG_S
     int Version;
 };
 
+class TopThread : public QThread
+{
+    Q_OBJECT
+
+public:
+    explicit TopThread(QObject *parent = 0);
+    ~TopThread();
+    uint getMemoryRate(void);
+    uint getCpuRate(void);
+    QString getUpload(void);
+    QString getDownload(void);
+    void setInterval(int mSeconds);
+    void setOver(bool over);
+private:
+    void run(void);
+
+    int m_interval;
+    uint m_MemeoryRate;
+    uint m_CpuRate;
+    QString m_Upload;
+    QString m_Download;
+    bool m_Over;
+    long m_preIn;
+    long m_preOut;
+    int m_preTime;
+};
+
 class MainWidget : public QWidget
 {
     Q_OBJECT
@@ -122,6 +149,8 @@ private:
     bool m_hide;
     int m_rx;
     int m_ry;
+
+    TopThread* thread;
 };
 
 #endif // MAINWIDGET_H

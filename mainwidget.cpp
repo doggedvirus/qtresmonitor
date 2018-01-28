@@ -5,6 +5,156 @@
 #include <QByteArray>
 #include <QStringList>
 #include <QDataStream>
+#include <QWaitCondition>
+
+#ifdef Q_OS_OSX
+TopThread::TopThread(QObject *parent) :
+    QThread(parent)
+{
+    m_interval = 1000;
+    m_MemeoryRate = 0;
+    m_CpuRate = 0;
+    m_Upload = "0B/s";
+    m_Download = "0B/s";
+    m_Over = false;
+    m_preIn = 0;
+    m_preOut = 0;
+    m_preTime = 0;
+}
+
+TopThread::~TopThread()
+{
+}
+
+void TopThread::run(void)
+{
+    QProcess proc;
+    QStringList args;
+    args <<"-c"<<"top -F -R -o cpu";
+    proc.start( "/bin/bash", args );
+    proc.waitForStarted();
+    while(m_Over == false)
+    {
+        QEventLoop loop;
+        QTimer::singleShot(m_interval, &loop, &QEventLoop::quit);
+        loop.exec();
+
+        QString oneStatus = proc.readAll();
+        if(oneStatus.isEmpty())
+        {
+            continue;
+        }
+        int begin = oneStatus.indexOf(" sys, ");
+        begin = begin + 6;
+        int end = begin + oneStatus.mid(begin).indexOf("% idle");
+        if(end > begin)
+        {
+            m_CpuRate = 100 - oneStatus.mid(begin, end - begin).toFloat();
+        }
+
+        begin = oneStatus.indexOf("PhysMem: ");
+        begin = begin + 9;
+        end = begin + oneStatus.mid(begin).indexOf("M used");
+        if(end > begin)
+        {
+            int usedMem = oneStatus.mid(begin, end - begin).toInt();
+            begin = end + oneStatus.mid(end).indexOf("wired), ");
+            begin = begin + 8;
+            end = begin + oneStatus.mid(begin).indexOf("M unused");
+            if(end > begin)
+            {
+                int unusedMem = oneStatus.mid(begin, end - begin).toInt();
+                if(usedMem + unusedMem > 0)
+                {
+                    m_MemeoryRate = usedMem * 100 / (usedMem + unusedMem);
+                }
+            }
+
+        }
+
+        begin = oneStatus.indexOf("Networks: packets: ");
+        begin = begin + oneStatus.mid(begin).indexOf("/");
+        begin = begin + 1;
+        end = begin + oneStatus.mid(begin).indexOf("K in");
+        if(end > begin)
+        {
+            int nowIn = oneStatus.mid(begin, end - begin).toInt();
+            if(m_preIn > 0)
+            {
+                double dSpeed = 0;
+                int iSpeed = (nowIn - m_preIn) * 1000 / m_interval;
+                if(iSpeed > 1024)
+                {
+                    dSpeed = (double)(iSpeed * 100 / 1024) / 100.0;
+                    m_Download = QString("%1MB/s").arg(dSpeed);
+                }
+                else
+                {
+                    m_Download = QString("%1KB/s").arg(iSpeed);
+                }
+            }
+            m_preIn = nowIn;
+        }
+
+        begin = end + oneStatus.mid(end).indexOf("/");
+        begin = begin + 1;
+        end = begin + oneStatus.mid(begin).indexOf("K out");
+        if(end > begin)
+        {
+            int nowOut = oneStatus.mid(begin, end - begin).toInt();
+            if(m_preOut > 0)
+            {
+                double dSpeed = 0;
+                int iSpeed = (nowOut - m_preOut) * 1000 / m_interval;
+                if(iSpeed > 1024)
+                {
+                    dSpeed = (double)(iSpeed * 100 / 1024) / 100.0;
+                    m_Upload = QString("%1MB/s").arg(dSpeed);
+                }
+                else
+                {
+                    m_Upload = QString("%1KB/s").arg(iSpeed);
+                }
+            }
+            m_preOut = nowOut;
+        }
+    }
+}
+
+uint TopThread::getMemoryRate(void)
+{
+    uint ret = m_MemeoryRate;
+    return ret;
+}
+
+uint TopThread::getCpuRate(void)
+{
+    uint ret = m_CpuRate;
+    return ret;
+}
+
+QString TopThread::getUpload(void)
+{
+    QString ret = m_Upload;
+    return ret;
+}
+
+QString TopThread::getDownload(void)
+{
+    QString ret = m_Download;
+    return ret;
+}
+
+void TopThread::setInterval(int mSeconds)
+{
+    m_interval = mSeconds;
+}
+
+void TopThread::setOver(bool over)
+{
+    m_Over = over;
+}
+#endif
 
 MainWidget::MainWidget(QWidget *parent)
     : QWidget(parent)
@@ -80,6 +230,14 @@ MainWidget::MainWidget(QWidget *parent)
     m_iPreAngleTime = 9888;//just initial value
     m_timer->start(1000);
     m_scanTimer->start(50);
+
+#if defined Q_OS_OSX
+    //use top to get all data,top need run all the time,
+    //so create a thread to run  it.
+    thread = new TopThread();
+    thread->start();
+#endif
+
 }
 
 MainWidget::~MainWidget()
@@ -433,6 +591,9 @@ bool MainWidget::getRamRate(void)
 
         file.close();
     }
+#elif defined Q_OS_OSX
+    m_MemeoryRate = thread->getMemoryRate();
+    bRet = true;
 #endif
     return bRet;
 }
@@ -491,6 +652,9 @@ bool MainWidget::getCpuRate(void)
         m_preIdleTime = currentIdleTime;
         file.close();
     }
+#elif defined Q_OS_OSX
+    m_CpuRate = thread->getCpuRate();
+    bRet = true;
 #endif
     return bRet;
 }
@@ -589,7 +753,12 @@ bool MainWidget::getNetworkSpeed(void)
         m_preNetIn = NowIn;
         file.close();
     }
+#elif defined Q_OS_OSX
+    m_Upload = thread->getUpload();
+    m_Download = thread->getDownload();
+    bRet = true;
 #endif
+
     return bRet;
 }
 
