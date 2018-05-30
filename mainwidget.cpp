@@ -694,7 +694,10 @@ bool MainWidget::getNetworkSpeed(void)
             //get rid of unexcept adapter
             if(false == Desc.contains("Virtual")
                && false == Desc.contains("Filter")
-               && false == Desc.contains("QoS"))
+               && false == Desc.contains("QoS")
+               && false == Desc.contains("Bridge")
+               && false == Desc.contains("Pseudo")
+               && 0 != QString(QByteArray((char*)Row.bPhysAddr, 8).toHex()).toUpper().compare("0000000000000000"))
             {
                 NowIn = NowIn + Row.dwInOctets;
                 NowOut = NowOut + Row.dwOutOctets;

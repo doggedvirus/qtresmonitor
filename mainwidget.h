@@ -55,6 +55,7 @@ struct CONFIG_S
     int Version;
 };
 
+#ifdef Q_OS_OSX
 class TopThread : public QThread
 {
     Q_OBJECT
@@ -81,6 +82,7 @@ private:
     long m_preOut;
     int m_preTime;
 };
+#endif
 
 class MainWidget : public QWidget
 {
@@ -150,7 +152,9 @@ private:
     int m_rx;
     int m_ry;
 
+#ifdef Q_OS_OSX
     TopThread* thread;
+#endif
 };
 
 #endif // MAINWIDGET_H
