@@ -382,6 +382,8 @@ void MainWidget::paintEvent(QPaintEvent *event)
     }
 
     layoutInit();
+
+    setWindowFlags(windowFlags() | Qt::WindowStaysOnTopHint);
     QWidget::paintEvent(event);
 }
 void MainWidget::mousePressEvent(QMouseEvent *event)
