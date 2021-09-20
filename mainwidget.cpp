@@ -279,6 +279,7 @@ void MainWidget::paintEvent(QPaintEvent *event)
         }
         setFixedSize(10, 100);
         QPainter painter(this);
+        painter.setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing);
         painter.setPen(QPen(m_Color, 1));
         painter.setBrush(QBrush(Qt::white));
         painter.drawRect(0, 99, 9, -99);
@@ -304,7 +305,7 @@ void MainWidget::paintEvent(QPaintEvent *event)
 
         int start = 2;
         int min = 2;
-        int width = 100 + 1;
+        int width = 100 + min;
         int max = 100 + start;
 
         if(0 != (max + min) % 2)
@@ -316,6 +317,7 @@ void MainWidget::paintEvent(QPaintEvent *event)
 
         //draw a radar
         QPainter painter_horizon(this);
+        painter_horizon.setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing);
         painter_horizon.setPen(QPen(m_Color));
         QConicalGradient conicalGradient(middle,middle,180.0 - m_Angle);
         conicalGradient.setColorAt(0, m_Color);
@@ -323,10 +325,11 @@ void MainWidget::paintEvent(QPaintEvent *event)
         painter_horizon.setBrush(QBrush(conicalGradient));
         painter_horizon.drawEllipse(start,start,width,width);
         QPainter painter(this);
+        painter.setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing);
         painter.setPen(QPen(m_Color, 1));
 
-        painter.drawLine(min, middle, max, middle);
-        painter.drawLine(middle, min, middle, max);
+        painter.drawLine(min + 1, middle, max + 1, middle);
+        painter.drawLine(middle, min + 1, middle, max + 1);
         painter.drawEllipse(22, 22, 60, 60);
 
         //draw the line from radar to data
