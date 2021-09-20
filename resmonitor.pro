@@ -9,7 +9,6 @@ QT       += core gui
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 TARGET = resmonitor
-TEMPLATE = app
 
 # The following define makes your compiler emit warnings if you use
 # any feature of Qt which as been marked as deprecated (the exact warnings
@@ -27,6 +26,8 @@ SOURCES += main.cpp\
         mainwidget.cpp
 
 HEADERS  += mainwidget.h
+
+win32:LIBS += -liphlpapi
 
 RC_FILE += \
     resmonitor.rc

@@ -1,11 +1,16 @@
 #include "mainwidget.h"
 #include <QFile>
-#include <QLibrary>
 #include <QString>
 #include <QByteArray>
 #include <QStringList>
 #include <QDataStream>
 #include <QWaitCondition>
+
+#ifdef Q_OS_WIN
+#define _WIN32_WINNT 0x0600
+#include "iphlpapi.h"
+#endif
+
 
 #ifdef Q_OS_OSX
 TopThread::TopThread(QObject *parent) :
@@ -670,65 +675,58 @@ bool MainWidget::getNetworkSpeed(void)
 {
     bool bRet = false;
 #ifdef Q_OS_WIN32
-    GetIfTable func_GetIfTable;
-    QLibrary lib;
-    //usually,iphlpapi.dll has existed in windows
-    lib.setFileName("iphlpapi.dll");
-    lib.load();
-    func_GetIfTable = (GetIfTable)lib.resolve("GetIfTable");
+    PMIB_IFTABLE m_pTable = NULL;
+    DWORD m_dwAdapters = 0;
+    //first call is just get the m_dwAdapters's value
+    //more detail,pls see https://msdn.microsoft.com/en-us/library/windows/desktop/aa365943(v=vs.85).aspx
 
-    if(NULL != func_GetIfTable)
+    GetIfTable(m_pTable, &m_dwAdapters, FALSE);
+
+    m_pTable = (PMIB_IFTABLE)new BYTE[m_dwAdapters];
+    //speed = sum / time,so it should record the time
+    int nowTime = QDateTime().currentDateTime().toString("zzz").toInt();
+    GetIfTable(m_pTable, &m_dwAdapters, FALSE);
+    DWORD NowIn = 0;
+    DWORD NowOut = 0;
+    QString Desc;
+    for (UINT i = 0; i < m_pTable->dwNumEntries; i++)
     {
-        PMIB_IFTABLE m_pTable = NULL;
-        DWORD m_dwAdapters = 0;
-        //first call is just get the m_dwAdapters's value
-        //more detail,pls see https://msdn.microsoft.com/en-us/library/windows/desktop/aa365943(v=vs.85).aspx
+        MIB_IFROW Row = m_pTable->table[i];
+        Desc = QString::fromLatin1((char*)Row.bDescr, Row.dwDescrLen - 1);
 
-        func_GetIfTable(m_pTable, &m_dwAdapters, FALSE);
-
-        m_pTable = (PMIB_IFTABLE)new BYTE[m_dwAdapters];
-        //speed = sum / time,so it should record the time
-        int nowTime = QDateTime().currentDateTime().toString("zzz").toInt();
-        func_GetIfTable(m_pTable, &m_dwAdapters, FALSE);
-        DWORD NowIn = 0;
-        DWORD NowOut = 0;
-        QString Desc;
-        for (UINT i = 0; i < m_pTable->dwNumEntries; i++)
+        //get rid of unexcept adapter
+        if(false == Desc.contains("Virtual")
+           && false == Desc.contains("Filter")
+           && false == Desc.contains("QoS")
+           && false == Desc.contains("Bridge")
+           && false == Desc.contains("Pseudo")
+           && 0 != QString(QByteArray((char*)Row.bPhysAddr, 8).toHex()).toUpper().compare("0000000000000000"))
         {
-            MIB_IFROW Row = m_pTable->table[i];
-            Desc = QString::fromLatin1((char*)Row.bDescr, Row.dwDescrLen - 1);
-
-            //get rid of unexcept adapter
-            if(false == Desc.contains("Virtual")
-               && false == Desc.contains("Filter")
-               && false == Desc.contains("QoS")
-               && false == Desc.contains("Bridge")
-               && false == Desc.contains("Pseudo")
-               && 0 != QString(QByteArray((char*)Row.bPhysAddr, 8).toHex()).toUpper().compare("0000000000000000"))
-            {
-                NowIn = NowIn + Row.dwInOctets;
-                NowOut = NowOut + Row.dwOutOctets;
-            }
+            NowIn = NowIn + Row.dwInOctets;
+            NowOut = NowOut + Row.dwOutOctets;
         }
-        delete []m_pTable;
-
-        if(0 != m_preNetOut && 0 != m_preNetIn)
-        {
-            double coeffcient = (double)(1000 + nowTime - m_preTime) / 1000;
-            //download and upload speed should keep same unit
-            if(NowIn >= m_preNetIn && NowOut >= m_preNetOut)
-            {
-                QStringList speedlist = getSpeedInfo(((double)(NowIn - m_preNetIn)) / coeffcient, ((double)(NowOut - m_preNetOut)) / coeffcient).split("|");
-                m_Upload = speedlist.at(0);
-                m_Download = speedlist.at(1);
-                bRet = true;
-            }
-        }
-
-        m_preTime = nowTime;
-        m_preNetOut = NowOut;
-        m_preNetIn = NowIn;
     }
+    delete []m_pTable;
+
+    if(0 != m_preNetOut && 0 != m_preNetIn)
+    {
+        double coeffcient = (1000 + nowTime - m_preTime) / 1000.0;
+        //download and upload speed should keep same unit
+        if(NowIn >= m_preNetIn && NowOut >= m_preNetOut)
+        {
+            double downloadSpeed = ((double)((unsigned long)NowIn - m_preNetIn)) / coeffcient;
+            double uploadSpeed = ((double)((unsigned long)NowOut - m_preNetOut)) / coeffcient;
+            QString speedInfo = getSpeedInfo(downloadSpeed, uploadSpeed);
+            QStringList speedlist = speedInfo.split("|");
+            m_Upload = speedlist.at(0);
+            m_Download = speedlist.at(1);
+            bRet = true;
+        }
+    }
+
+    m_preTime = nowTime;
+    m_preNetOut = NowOut;
+    m_preNetIn = NowIn;
 #elif defined Q_OS_LINUX
     QFile file("/proc/net/dev");
     if(file.open(QIODevice::ReadOnly))
@@ -789,7 +787,7 @@ void MainWidget::changeColor_slot(QAction *action)
     else
     {
         QPalette palette = QPalette(m_Color);
-        QColor selectcolor = QColorDialog::getColor(palette.color(QPalette::Button),this,QString(),0);
+        QColor selectcolor = QColorDialog::getColor(palette.color(QPalette::Button),this);
         if (false == selectcolor.isValid())
         {
             return;
