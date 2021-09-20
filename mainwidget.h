@@ -98,7 +98,6 @@ public slots:
     void quitApp_slot(void);
     void about_slot(void);
     void changeColor_slot(QAction *action);
-    void changeDisplay_slot(QAction* action);
 protected:
     void paintEvent(QPaintEvent *event);
     void mousePressEvent(QMouseEvent *event);
@@ -115,7 +114,6 @@ private:
     QSystemTrayIcon* m_TrayIcon;
     QAction* m_QuitAction;
     QAction* m_AboutAction;
-    QMenu* m_DisplayMenu;
     QMenu* m_ColorMenu;
     QMenu* m_Menu;
 
@@ -141,13 +139,11 @@ private:
     QString m_Upload;
     QString m_Download;
 
-    float m_dpi;
     QPoint m_dragPosition;
     int m_iPreAngleTime;
     double m_Angle;
     QSize m_preScreenSize;
     QColor m_Color;
-    int m_displayC;
     bool m_hide;
     int m_rx;
     int m_ry;

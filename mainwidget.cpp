@@ -159,12 +159,9 @@ void TopThread::setOver(bool over)
 MainWidget::MainWidget(QWidget *parent)
     : QWidget(parent)
 {
-    m_dpi = qApp->primaryScreen()->logicalDotsPerInchX() / 120.0;
-
     QString FileName = QCoreApplication::applicationDirPath() + "/config.ini";
     QSettings *pConfig = new QSettings(FileName, QSettings::IniFormat);
     m_Color = getColorFromArray(pConfig->value("Basic/Color").toByteArray());
-    m_displayC = pConfig->value("Basic/DisplayC").toInt();
     m_rx = pConfig->value("Basic/RelativeX").toInt();
     m_ry = pConfig->value("Basic/RelativeY").toInt();
     m_hide = pConfig->value("Basic/Hide").toBool();
@@ -195,13 +192,7 @@ MainWidget::MainWidget(QWidget *parent)
     m_ColorMenu->addAction("Gray");
     m_ColorMenu->addAction("Blue");
     m_ColorMenu->addAction("Custom");
-    m_DisplayMenu = new QMenu("Display", this);
-    m_DisplayMenu->addAction("80%");
-    m_DisplayMenu->addAction("100%");
-    m_DisplayMenu->addAction("150%");
-    m_DisplayMenu->addAction("200%");
     m_Menu = new QMenu(this);
-    m_Menu->addMenu(m_DisplayMenu);
     m_Menu->addMenu(m_ColorMenu);
     m_Menu->addAction(m_AboutAction);
     m_Menu->addAction(m_QuitAction);
@@ -214,7 +205,6 @@ MainWidget::MainWidget(QWidget *parent)
     connect(m_QuitAction,SIGNAL(triggered()),this, SLOT(quitApp_slot()));
     connect(m_AboutAction,SIGNAL(triggered()),this, SLOT(about_slot()));
     connect(m_ColorMenu,SIGNAL(triggered(QAction*)),this, SLOT(changeColor_slot(QAction*)));
-    connect(m_DisplayMenu,SIGNAL(triggered(QAction*)),this, SLOT(changeDisplay_slot(QAction*)));
 
     layoutInit();
 
@@ -266,9 +256,8 @@ void MainWidget::paintEvent(QPaintEvent *event)
     if(m_preScreenSize != screenSize)
     {
         move(screenSize.width() * m_rx / 1000, screenSize.height() * m_ry / 1000);
-        m_dpi = pscreen->physicalDotsPerInch() * pscreen->physicalSize().width() * m_displayC / 5316000;
         QFont font  = qApp->font();
-        font.setPixelSize(20 * m_dpi);
+        font.setPixelSize(20);
         qApp->setFont(font);
         m_preScreenSize = screenSize;
     }
@@ -284,17 +273,17 @@ void MainWidget::paintEvent(QPaintEvent *event)
 
     if(m_hide && false == bOnWidget)
     {
-        if(this->x() != (screenSize.width() - 10 * m_dpi) * 1000 / screenSize.width())
+        if(this->x() != (screenSize.width() - 10) * 1000 / screenSize.width())
         {
             move(screenSize.width() * m_rx / 1000, screenSize.height() * m_ry / 1000);
         }
-        setFixedSize(10 * m_dpi, 100 * m_dpi);
+        setFixedSize(10, 100);
         QPainter painter(this);
         painter.setPen(QPen(m_Color, 1));
         painter.setBrush(QBrush(Qt::white));
-        painter.drawRect(0, 99 * m_dpi, 9 * m_dpi, -99 * m_dpi);
+        painter.drawRect(0, 99, 9, -99);
         painter.setBrush(QBrush(m_Color));
-        painter.drawRect(0, 99 * m_dpi, 9 * m_dpi, - (m_MemeoryRate * m_dpi));
+        painter.drawRect(0, 99, 9, -m_MemeoryRate);
     }
     else
     {
@@ -303,7 +292,7 @@ void MainWidget::paintEvent(QPaintEvent *event)
         {
             if(m_rx > 500)
             {
-                move(screenSize.width() - 220 * m_dpi, screenSize.height() * m_ry / 1000);
+                move(screenSize.width() - 220, screenSize.height() * m_ry / 1000);
             }
             else
             {
@@ -311,12 +300,12 @@ void MainWidget::paintEvent(QPaintEvent *event)
             }
         }
 
-        setFixedSize(220 * m_dpi, 110 * m_dpi);
+        setFixedSize(220, 110);
 
-        int start = 2 * m_dpi;
-        int min = 2 * m_dpi;
-        int width = 100 * m_dpi + 1;
-        int max = 100 * m_dpi + start;
+        int start = 2;
+        int min = 2;
+        int width = 100 + 1;
+        int max = 100 + start;
 
         if(0 != (max + min) % 2)
         {
@@ -327,18 +316,18 @@ void MainWidget::paintEvent(QPaintEvent *event)
 
         //draw a radar
         QPainter painter_horizon(this);
-        painter_horizon.setPen(QPen(m_Color, m_dpi));
+        painter_horizon.setPen(QPen(m_Color));
         QConicalGradient conicalGradient(middle,middle,180.0 - m_Angle);
         conicalGradient.setColorAt(0, m_Color);
         conicalGradient.setColorAt(1.0, QColor(255,255,255,0));
         painter_horizon.setBrush(QBrush(conicalGradient));
         painter_horizon.drawEllipse(start,start,width,width);
         QPainter painter(this);
-        painter.setPen(QPen(m_Color, m_dpi));
+        painter.setPen(QPen(m_Color, 1));
 
         painter.drawLine(min, middle, max, middle);
         painter.drawLine(middle, min, middle, max);
-        painter.drawEllipse(22 * m_dpi, 22 * m_dpi, 60 * m_dpi, 60 * m_dpi);
+        painter.drawEllipse(22, 22, 60, 60);
 
         //draw the line from radar to data
         QPoint p1;
@@ -346,36 +335,36 @@ void MainWidget::paintEvent(QPaintEvent *event)
         QPoint p3;
         if(m_Angle >= 120 && m_Angle < 240)
         {
-            p1 = QPoint(60 * m_dpi, 32.7 * m_dpi);
-            p2 = QPoint(72.7 * m_dpi, 20 * m_dpi);
-            p3 = QPoint(105 * m_dpi, 20 * m_dpi);
+            p1 = QPoint(60, 32);
+            p2 = QPoint(72, 20);
+            p3 = QPoint(105, 20);
             painter.drawLine(p1, p2);
             painter.drawLine(p2, p3);
         }
 
         if(m_Angle >= 150 && m_Angle < 270)
         {
-            p1 = QPoint(57.6 * m_dpi, 45 * m_dpi);
-            p2 = QPoint(62.6 * m_dpi, 40 * m_dpi);
-            p3 = QPoint(105 * m_dpi, 40 * m_dpi);
+            p1 = QPoint(57, 45);
+            p2 = QPoint(62, 40);
+            p3 = QPoint(105, 40);
             painter.drawLine(p1, p2);
             painter.drawLine(p2, p3);
         }
 
         if(m_Angle >= 210 && m_Angle < 330)
         {
-            p1 = QPoint(57.6 * m_dpi, 55 * m_dpi);
-            p2 = QPoint(62.6 * m_dpi, 60 * m_dpi);
-            p3 = QPoint(105 * m_dpi, 60 * m_dpi);
+            p1 = QPoint(57, 55);
+            p2 = QPoint(62, 60);
+            p3 = QPoint(105, 60);
             painter.drawLine(p1, p2);
             painter.drawLine(p2, p3);
         }
 
         if(m_Angle >= 240 && m_Angle < 360)
         {
-            p1 = QPoint(60 * m_dpi, 67.3 * m_dpi);
-            p2 = QPoint(72.7 * m_dpi, 80 * m_dpi);
-            p3 = QPoint(105 * m_dpi, 80 * m_dpi);
+            p1 = QPoint(60, 67);
+            p2 = QPoint(72, 80);
+            p3 = QPoint(105, 80);
             painter.drawLine(p1, p2);
             painter.drawLine(p2, p3);
         }
@@ -415,10 +404,10 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event)
     m_ry = now.y() * 1000 / screenSize.height();
 
     //hide radar when it move to right hand
-    if(now.x() + 100 * m_dpi > screenSize.width())
+    if(now.x() + 100 > screenSize.width())
     {
         m_hide = true;
-        m_rx = (screenSize.width() - 10 * m_dpi) * 1000 / screenSize.width();
+        m_rx = (screenSize.width() - 10) * 1000 / screenSize.width();
     }
     else if(now.x() < 0)
     {
@@ -430,11 +419,11 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event)
         m_hide = false;
     }
 
-    if(now.y() + 100 * m_dpi > screenSize.height())
+    if(now.y() + 100 > screenSize.height())
     {
         m_ry = 900;
     }
-    else if(now.x()  + 100 * m_dpi < 0)
+    else if(now.x()  + 100 < 0)
     {
         m_ry = 100;
     }
@@ -457,10 +446,10 @@ void MainWidget::contextMenuEvent(QContextMenuEvent *event)
 
 void MainWidget::layoutInit(void)
 {
-    CpuRate_Label->move(110 * m_dpi, 10 * m_dpi);
-    RamRate_Label->move(110 * m_dpi, 30 * m_dpi);
-    uploadSpeed_Label->move(110 * m_dpi, 50 * m_dpi);
-    downloadSpeed_Label->move(110 * m_dpi, 70 * m_dpi);
+    CpuRate_Label->move(110, 10);
+    RamRate_Label->move(110, 30);
+    uploadSpeed_Label->move(110, 50);
+    downloadSpeed_Label->move(110, 70);
 }
 
 QColor MainWidget::getColorFromArray(QByteArray array)
@@ -819,20 +808,4 @@ void MainWidget::changeColor_slot(QAction *action)
     downloadSpeed_Label->setPalette(pa);
 
     repaint();
-}
-
-void MainWidget::changeDisplay_slot(QAction* action)
-{
-    m_displayC = action->text().left(action->text().length() - 1).toInt();
-
-    QString FileName = QCoreApplication::applicationDirPath() + "/config.ini";
-    QSettings *pConfig = new QSettings(FileName, QSettings::IniFormat);
-    pConfig->setValue("Basic/DisplayC", m_displayC);
-    delete pConfig;
-
-    QScreen *pscreen = qApp->primaryScreen();
-    m_dpi = pscreen->physicalDotsPerInch() * pscreen->physicalSize().width() * m_displayC / 5316000;
-    QFont font  = qApp->font();
-    font.setPixelSize(20 * m_dpi);
-    qApp->setFont(font);
 }

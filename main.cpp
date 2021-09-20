@@ -1,8 +1,28 @@
 #include "mainwidget.h"
 #include <QApplication>
 
+void setHighDpiEnvironmentVariable()
+{
+#ifdef Q_OS_WIN
+    if (!qEnvironmentVariableIsSet("QT_OPENGL"))
+        QCoreApplication::setAttribute(Qt::AA_UseOpenGLES);
+#endif
+
+    if (!qEnvironmentVariableIsSet("QT_DEVICE_PIXEL_RATIO") // legacy in 5.6, but still functional
+        && !qEnvironmentVariableIsSet("QT_AUTO_SCREEN_SCALE_FACTOR")
+        && !qEnvironmentVariableIsSet("QT_SCALE_FACTOR")
+        && !qEnvironmentVariableIsSet("QT_SCREEN_SCALE_FACTORS")) {
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+        QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+        QCoreApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
+#endif
+    }
+}
+
 int main(int argc, char *argv[])
 {
+    setHighDpiEnvironmentVariable();
+
     QApplication a(argc, argv);
 
     QFont font  = qApp->font();
