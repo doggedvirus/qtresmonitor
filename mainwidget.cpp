@@ -35,7 +35,7 @@ void TopThread::run(void)
 {
     QProcess proc;
     QStringList args;
-    args <<"-c"<<"top -F -R -o cpu";
+    args <<"-c"<<"top -d -F -R -o cpu";
     proc.start( "/bin/bash", args );
     proc.waitForStarted();
     while(m_Over == false)
@@ -51,77 +51,53 @@ void TopThread::run(void)
         }
         int begin = oneStatus.indexOf(" sys, ");
         begin = begin + 6;
-        int end = begin + oneStatus.mid(begin).indexOf("% idle");
+        int end = begin + oneStatus.midRef(begin).indexOf("% idle");
         if(end > begin)
         {
-            m_CpuRate = 100 - oneStatus.mid(begin, end - begin).toFloat();
+            m_CpuRate = 100 - oneStatus.midRef(begin, end - begin).toFloat();
         }
 
         begin = oneStatus.indexOf("PhysMem: ");
         begin = begin + 9;
-        end = begin + oneStatus.mid(begin).indexOf("M used");
+        end = begin + oneStatus.midRef(begin).indexOf("M used");
         if(end > begin)
         {
-            int usedMem = oneStatus.mid(begin, end - begin).toInt();
-            begin = end + oneStatus.mid(end).indexOf("wired), ");
-            begin = begin + 8;
-            end = begin + oneStatus.mid(begin).indexOf("M unused");
+            int usedMem = oneStatus.midRef(begin, end - begin).toInt();
+            begin = end + oneStatus.midRef(end).indexOf("(");
+            begin = begin + 1;
+            end = begin + oneStatus.midRef(begin).indexOf("M wired");
             if(end > begin)
             {
-                int unusedMem = oneStatus.mid(begin, end - begin).toInt();
-                if(usedMem + unusedMem > 0)
+                int wiredMem = oneStatus.midRef(begin, end - begin).toInt();
+                begin = end + oneStatus.midRef(end).indexOf("wired), ");
+                begin = begin + 8;
+                end = begin + oneStatus.midRef(begin).indexOf("M unused");
+                if(end > begin)
                 {
-                    m_MemeoryRate = usedMem * 100 / (usedMem + unusedMem);
+                    int unusedMem = oneStatus.midRef(begin, end - begin).toInt();
+                    if(usedMem + unusedMem > 0)
+                    {
+                        m_MemeoryRate = (usedMem - wiredMem) * 100 / (usedMem + unusedMem);
+                    }
                 }
             }
-
         }
 
         begin = oneStatus.indexOf("Networks: packets: ");
-        begin = begin + oneStatus.mid(begin).indexOf("/");
+        begin = begin + oneStatus.midRef(begin).indexOf("/");
         begin = begin + 1;
-        end = begin + oneStatus.mid(begin).indexOf("K in");
+        end = begin + oneStatus.midRef(begin).indexOf(" in");
         if(end > begin)
         {
-            int nowIn = oneStatus.mid(begin, end - begin).toInt();
-            if(m_preIn > 0)
-            {
-                double dSpeed = 0;
-                int iSpeed = (nowIn - m_preIn) * 1000 / m_interval;
-                if(iSpeed > 1024)
-                {
-                    dSpeed = (double)(iSpeed * 100 / 1024) / 100.0;
-                    m_Download = QString("%1MB/s").arg(dSpeed);
-                }
-                else
-                {
-                    m_Download = QString("%1KB/s").arg(iSpeed);
-                }
-            }
-            m_preIn = nowIn;
+            m_Download = oneStatus.midRef(begin, end - begin).toString();
         }
 
-        begin = end + oneStatus.mid(end).indexOf("/");
+        begin = end + oneStatus.midRef(end).indexOf("/");
         begin = begin + 1;
-        end = begin + oneStatus.mid(begin).indexOf("K out");
+        end = begin + oneStatus.midRef(begin).indexOf(" out");
         if(end > begin)
         {
-            int nowOut = oneStatus.mid(begin, end - begin).toInt();
-            if(m_preOut > 0)
-            {
-                double dSpeed = 0;
-                int iSpeed = (nowOut - m_preOut) * 1000 / m_interval;
-                if(iSpeed > 1024)
-                {
-                    dSpeed = (double)(iSpeed * 100 / 1024) / 100.0;
-                    m_Upload = QString("%1MB/s").arg(dSpeed);
-                }
-                else
-                {
-                    m_Upload = QString("%1KB/s").arg(iSpeed);
-                }
-            }
-            m_preOut = nowOut;
+            m_Upload = oneStatus.midRef(begin, end - begin).toString();
         }
     }
 }
@@ -187,8 +163,14 @@ MainWidget::MainWidget(QWidget *parent)
     connect(m_timer, SIGNAL(timeout()), this, SLOT(timeout_slot()));
     m_scanTimer = new QTimer(this);
     connect(m_scanTimer, SIGNAL(timeout()), this, SLOT(scanTimeout_slot()));
-    this->setWindowFlags(Qt::FramelessWindowHint | Qt::Tool);
-    this->setAttribute(Qt::WA_TranslucentBackground, true);
+
+    setWindowFlags(Qt::FramelessWindowHint
+                   | Qt::WindowStaysOnTopHint
+#ifdef Q_OS_WIN
+                        | Qt::Tool
+#endif
+                   );
+    setAttribute(Qt::WA_TranslucentBackground, true);
 
     m_QuitAction = new QAction("Quit",this);
     m_AboutAction = new QAction("About",this);
@@ -293,6 +275,8 @@ void MainWidget::paintEvent(QPaintEvent *event)
     }
     else
     {
+        setFixedSize(220, 110);
+
         //show complete information when mouse on it
         if(m_hide && bOnWidget)
         {
@@ -305,8 +289,6 @@ void MainWidget::paintEvent(QPaintEvent *event)
                 move(0, screenSize.height() * m_ry / 1000);
             }
         }
-
-        setFixedSize(220, 110);
 
         int start = 2;
         int min = 2;
@@ -378,9 +360,6 @@ void MainWidget::paintEvent(QPaintEvent *event)
         }
     }
 
-    layoutInit();
-
-    setWindowFlags(windowFlags() | Qt::WindowStaysOnTopHint);
     QWidget::paintEvent(event);
 }
 void MainWidget::mousePressEvent(QMouseEvent *event)
