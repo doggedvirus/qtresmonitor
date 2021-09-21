@@ -51,6 +51,7 @@ int main(int argc, char *argv[])
 
     QSize screenSize = qApp->primaryScreen()->size();
     MainWidget w;
+    w.setWindowIcon(QIcon(":/monitor.png"));
     w.setWindowFlags(w.windowFlags() | Qt::WindowStaysOnTopHint);
     w.move(screenSize.width() * rx / 1000, screenSize.height() *ry / 1000);
     w.show();

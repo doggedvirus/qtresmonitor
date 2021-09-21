@@ -21,6 +21,7 @@ DEFINES += QT_DEPRECATED_WARNINGS
 # You can also select to disable deprecated APIs only up to a certain version of Qt.
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
+macx:CONFIG+=sdk_no_version_check
 
 SOURCES += main.cpp\
         mainwidget.cpp
@@ -28,6 +29,8 @@ SOURCES += main.cpp\
 HEADERS  += mainwidget.h
 
 win32:LIBS += -liphlpapi
+
+macx:ICON = logo.icns
 
 RC_FILE += \
     resmonitor.rc

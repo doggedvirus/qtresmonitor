@@ -90,6 +90,15 @@ void TopThread::run(void)
         if(end > begin)
         {
             m_Download = oneStatus.midRef(begin, end - begin).toString();
+            if(m_Download.length() > 10) {
+                m_Download = "0B";
+            }
+
+            if(!m_Download.endsWith("B")) {
+                m_Download += "B";
+            }
+
+            m_Download += "/s";
         }
 
         begin = end + oneStatus.midRef(end).indexOf("/");
@@ -98,6 +107,15 @@ void TopThread::run(void)
         if(end > begin)
         {
             m_Upload = oneStatus.midRef(begin, end - begin).toString();
+            if(m_Upload.length() > 10) {
+                m_Upload = "0B";
+            }
+
+            if(!m_Upload.endsWith("B")) {
+                m_Upload += "B";
+            }
+
+            m_Upload += "/s";
         }
     }
 }
