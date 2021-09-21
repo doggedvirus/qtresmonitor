@@ -103,6 +103,7 @@ private:
     bool m_hide;
     int m_rx;
     int m_ry;
+    qint64 mMoveTime = 0;
 
 #ifdef Q_OS_OSX
     TopThread* thread;
