@@ -61,7 +61,7 @@ protected:
     void mouseReleaseEvent(QMouseEvent *event);
     void contextMenuEvent(QContextMenuEvent *event);
 private:
-
+    void checkShowAndHide(void);
     QLabel* CpuRate_Label;
     QLabel* RamRate_Label;
     QLabel* uploadSpeed_Label;
@@ -104,6 +104,7 @@ private:
     int m_rx;
     int m_ry;
     qint64 mMoveTime = 0;
+    bool mOnWidget = false;
 
 #ifdef Q_OS_OSX
     TopThread* thread;
