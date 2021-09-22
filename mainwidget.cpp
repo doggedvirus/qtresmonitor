@@ -63,22 +63,15 @@ void TopThread::run(void)
         if(end > begin)
         {
             int usedMem = oneStatus.midRef(begin, end - begin).toInt();
-            begin = end + oneStatus.midRef(end).indexOf("(");
-            begin = begin + 1;
-            end = begin + oneStatus.midRef(begin).indexOf("M wired");
+            begin = end + oneStatus.midRef(end).indexOf("wired), ");
+            begin = begin + 8;
+            end = begin + oneStatus.midRef(begin).indexOf("M unused");
             if(end > begin)
             {
-                int wiredMem = oneStatus.midRef(begin, end - begin).toInt();
-                begin = end + oneStatus.midRef(end).indexOf("wired), ");
-                begin = begin + 8;
-                end = begin + oneStatus.midRef(begin).indexOf("M unused");
-                if(end > begin)
+                int unusedMem = oneStatus.midRef(begin, end - begin).toInt();
+                if(usedMem + unusedMem > 0)
                 {
-                    int unusedMem = oneStatus.midRef(begin, end - begin).toInt();
-                    if(usedMem + unusedMem > 0)
-                    {
-                        m_MemeoryRate = (usedMem - wiredMem) * 100 / (usedMem + unusedMem);
-                    }
+                    m_MemeoryRate = usedMem * 100 / (usedMem + unusedMem);
                 }
             }
         }
@@ -178,12 +171,10 @@ MainWidget::MainWidget(QWidget *parent)
     downloadSpeed_Label = new QLabel(this);
     downloadSpeed_Label->setPalette(pa);
 
-    if(m_hide) {
-        CpuRate_Label->hide();
-        RamRate_Label->hide();
-        uploadSpeed_Label->hide();
-        downloadSpeed_Label->hide();
-    }
+    CpuRate_Label->hide();
+    RamRate_Label->hide();
+    uploadSpeed_Label->hide();
+    downloadSpeed_Label->hide();
 
     m_timer = new QTimer(this);
     connect(m_timer, SIGNAL(timeout()), this, SLOT(timeout_slot()));
@@ -276,73 +267,75 @@ void MainWidget::paintEvent(QPaintEvent *event)
         painter.setBrush(QBrush(m_Color));
         painter.drawRect(0, 99, 9, -m_MemeoryRate);
     } else {
-        int start = 2;
-        int min = 2;
-        int width = 100 + min;
-        int max = 100 + start;
+        if(QDateTime::currentMSecsSinceEpoch() - mMoveTime > 100) {
+            int start = 2;
+            int min = 2;
+            int width = 100 + min;
+            int max = 100 + start;
 
-        if(0 != (max + min) % 2)
-        {
-            max++;
-            width++;
-        }
-        int middle = (min + max) / 2;
+            if(0 != (max + min) % 2)
+            {
+                max++;
+                width++;
+            }
+            int middle = (min + max) / 2;
 
-        //draw a radar
-        QPainter painter_horizon(this);
-        painter_horizon.setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing);
-        painter_horizon.setPen(QPen(m_Color));
-        QConicalGradient conicalGradient(middle,middle,180.0 - m_Angle);
-        conicalGradient.setColorAt(0, m_Color);
-        conicalGradient.setColorAt(1.0, QColor(255,255,255,0));
-        painter_horizon.setBrush(QBrush(conicalGradient));
-        painter_horizon.drawEllipse(start,start,width,width);
-        QPainter painter(this);
-        painter.setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing);
-        painter.setPen(QPen(m_Color, 1));
+            //draw a radar
+            QPainter painter_horizon(this);
+            painter_horizon.setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing);
+            painter_horizon.setPen(QPen(m_Color));
+            QConicalGradient conicalGradient(middle,middle,180.0 - m_Angle);
+            conicalGradient.setColorAt(0, m_Color);
+            conicalGradient.setColorAt(1.0, QColor(255,255,255,0));
+            painter_horizon.setBrush(QBrush(conicalGradient));
+            painter_horizon.drawEllipse(start,start,width,width);
+            QPainter painter(this);
+            painter.setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing);
+            painter.setPen(QPen(m_Color, 1));
 
-        painter.drawLine(min + 1, middle, max + 1, middle);
-        painter.drawLine(middle, min + 1, middle, max + 1);
-        painter.drawEllipse(22, 22, 60, 60);
+            painter.drawLine(min + 1, middle, max + 1, middle);
+            painter.drawLine(middle, min + 1, middle, max + 1);
+            painter.drawEllipse(22, 22, 60, 60);
 
-        //draw the line from radar to data
-        QPoint p1;
-        QPoint p2;
-        QPoint p3;
-        if(m_Angle >= 120 && m_Angle < 240)
-        {
-            p1 = QPoint(60, 32);
-            p2 = QPoint(72, 20);
-            p3 = QPoint(105, 20);
-            painter.drawLine(p1, p2);
-            painter.drawLine(p2, p3);
-        }
+            //draw the line from radar to data
+            QPoint p1;
+            QPoint p2;
+            QPoint p3;
+            if(m_Angle >= 120 && m_Angle < 240)
+            {
+                p1 = QPoint(60, 32);
+                p2 = QPoint(72, 20);
+                p3 = QPoint(105, 20);
+                painter.drawLine(p1, p2);
+                painter.drawLine(p2, p3);
+            }
 
-        if(m_Angle >= 150 && m_Angle < 270)
-        {
-            p1 = QPoint(57, 45);
-            p2 = QPoint(62, 40);
-            p3 = QPoint(105, 40);
-            painter.drawLine(p1, p2);
-            painter.drawLine(p2, p3);
-        }
+            if(m_Angle >= 150 && m_Angle < 270)
+            {
+                p1 = QPoint(57, 45);
+                p2 = QPoint(62, 40);
+                p3 = QPoint(105, 40);
+                painter.drawLine(p1, p2);
+                painter.drawLine(p2, p3);
+            }
 
-        if(m_Angle >= 210 && m_Angle < 330)
-        {
-            p1 = QPoint(57, 55);
-            p2 = QPoint(62, 60);
-            p3 = QPoint(105, 60);
-            painter.drawLine(p1, p2);
-            painter.drawLine(p2, p3);
-        }
+            if(m_Angle >= 210 && m_Angle < 330)
+            {
+                p1 = QPoint(57, 55);
+                p2 = QPoint(62, 60);
+                p3 = QPoint(105, 60);
+                painter.drawLine(p1, p2);
+                painter.drawLine(p2, p3);
+            }
 
-        if(m_Angle >= 240 && m_Angle < 360)
-        {
-            p1 = QPoint(60, 67);
-            p2 = QPoint(72, 80);
-            p3 = QPoint(105, 80);
-            painter.drawLine(p1, p2);
-            painter.drawLine(p2, p3);
+            if(m_Angle >= 240 && m_Angle < 360)
+            {
+                p1 = QPoint(60, 67);
+                p2 = QPoint(72, 80);
+                p3 = QPoint(105, 80);
+                painter.drawLine(p1, p2);
+                painter.drawLine(p2, p3);
+            }
         }
     }
 
@@ -526,6 +519,7 @@ void MainWidget::checkShowAndHide(void) {
     } else {
         setFixedSize(230, 110);
 
+        QPoint oldPosition = pos();
         //show complete information when mouse on it
         if(m_hide && mOnWidget)
         {
@@ -538,10 +532,17 @@ void MainWidget::checkShowAndHide(void) {
                 move(0, screenSize.height() * m_ry / 1000);
             }
         }
-        CpuRate_Label->show();
-        RamRate_Label->show();
-        uploadSpeed_Label->show();
-        downloadSpeed_Label->show();
+
+        if(oldPosition != pos()) {
+            mMoveTime = QDateTime::currentMSecsSinceEpoch();
+        } else {
+            QTimer::singleShot(200, this, [=]{
+                CpuRate_Label->show();
+                RamRate_Label->show();
+                uploadSpeed_Label->show();
+                downloadSpeed_Label->show();
+            });
+        }
     }
 }
 
