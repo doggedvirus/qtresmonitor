@@ -371,12 +371,12 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event)
     m_ry = now.y() * 1000 / screenSize.height();
 
     //hide radar when it move to right hand
-    if(now.x() + 100 > screenSize.width())
+    if(now.x() + 100 > screenSize.width() || m_rx > (screenSize.width() - 10) * 1000 / screenSize.width())
     {
         m_hide = true;
         m_rx = (screenSize.width() - 10) * 1000 / screenSize.width();
     }
-    else if(now.x() < 0)
+    else if(now.x() < 0 || m_rx < 0)
     {
         m_hide = true;
         m_rx = 0;
@@ -386,11 +386,11 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event)
         m_hide = false;
     }
 
-    if(now.y() + 100 > screenSize.height())
+    if(now.y() + 100 > screenSize.height() || m_ry > 900)
     {
         m_ry = 900;
     }
-    else if(now.x()  + 100 < 0)
+    else if(now.x()  + 100 < 0 || m_ry < 100)
     {
         m_ry = 100;
     }
